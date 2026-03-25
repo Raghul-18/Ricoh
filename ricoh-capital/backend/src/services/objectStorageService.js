@@ -3,17 +3,18 @@ import crypto from 'node:crypto';
 import oci from 'oci-sdk';
 import { env } from '../config/env.js';
 
-const provider = new oci.Common.SimpleAuthenticationDetailsProvider(
+const ociRegion = oci.common.Region.fromRegionId(env.oci.region);
+
+const provider = new oci.SimpleAuthenticationDetailsProvider(
   env.oci.tenancyId,
   env.oci.userId,
   env.oci.fingerprint,
   fs.readFileSync(env.oci.privateKeyPath, 'utf8'),
-  null,
-  env.oci.region,
   env.oci.passphrase || null,
+  ociRegion,
 );
 
-const objectStorageClient = new oci.ObjectStorage.ObjectStorageClient({
+const objectStorageClient = new oci.objectstorage.ObjectStorageClient({
   authenticationDetailsProvider: provider,
 });
 

@@ -112,6 +112,12 @@ async function checkOci() {
   const bucketContracts =
     process.env.OCI_BUCKET_CONTRACTS?.trim() || 'contracts';
   const passphrase = process.env.OCI_PASSPHRASE?.trim() || '';
+  const ociRegion = oci.common.Region.fromRegionId(region);
+
+  if (!ociRegion) {
+    fail(`Unknown OCI region: ${region}`);
+    return false;
+  }
 
   let privateKey;
   try {
@@ -124,15 +130,15 @@ async function checkOci() {
 
   let client;
   try {
-    const provider = new oci.Common.SimpleAuthenticationDetailsProvider(
+    const provider = new oci.SimpleAuthenticationDetailsProvider(
       tenancyId,
       userId,
       fingerprint,
       privateKey,
       passphrase || null,
-      region
+      ociRegion
     );
-    client = new oci.ObjectStorage.ObjectStorageClient({
+    client = new oci.objectstorage.ObjectStorageClient({
       authenticationDetailsProvider: provider,
     });
   } catch (err) {
