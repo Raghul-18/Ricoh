@@ -17,9 +17,10 @@ const objectStorageClient = new oci.ObjectStorage.ObjectStorageClient({
   authenticationDetailsProvider: provider,
 });
 
-function makeObjectName(userId, documentType, fileName) {
+function makeDocumentObjectName(userId, documentType, fileName) {
   const ext = fileName.includes('.') ? fileName.split('.').pop() : 'bin';
-  return `${userId}/${documentType}_${Date.now()}.${ext}`;
+  const prefix = env.oci.documentsPrefix;
+  return `${prefix}${userId}/${documentType}_${Date.now()}.${ext}`;
 }
 
 export async function uploadDocumentObject({
@@ -30,7 +31,7 @@ export async function uploadDocumentObject({
   stream,
   bucketName = env.oci.bucketDocuments,
 }) {
-  const objectName = makeObjectName(userId, documentType, fileName);
+  const objectName = makeDocumentObjectName(userId, documentType, fileName);
   await objectStorageClient.putObject({
     namespaceName: env.oci.namespace,
     bucketName,

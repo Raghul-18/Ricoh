@@ -70,11 +70,11 @@ This guide walks through provisioning **Oracle Autonomous Database**, **OCI Obje
 ### B2) Create buckets
 
 1. In Object Storage, same compartment:
-   - Create bucket **`documents`**
-   - Create bucket **`contracts`**
+   - Create a **documents** bucket (console name can be anything, e.g. *oci tech squad* — the value you put in `.env` must be the **API bucket name** shown in OCI, which may differ slightly from the display label)
+   - Optionally create a separate **contracts** bucket, or reuse one bucket for both if your policy allows
 2. Keep buckets **private** unless you intentionally publish assets.
 
-These names map to `OCI_BUCKET_DOCUMENTS` and `OCI_BUCKET_CONTRACTS` in `backend/.env.example`.
+Bucket API names map to `OCI_BUCKET_DOCUMENTS` and `OCI_BUCKET_CONTRACTS`. To mimic a console “folder” (e.g. everything under **`Ricoh/`**), set the prefix variables in **B5** — Object Storage has no real subfolders; the prefix is part of the object key.
 
 ### B3) API key for the backend SDK
 
@@ -108,19 +108,39 @@ Narrow policies further in production (specific buckets/compartments).
 | `OCI_PRIVATE_KEY_PATH` | Absolute path to `.pem`, e.g. `C:/Users/you/keys/oci_api_key.pem` |
 | `OCI_PASSPHRASE` | Only if the private key is encrypted |
 | `OCI_NAMESPACE` | Object Storage namespace |
-| `OCI_BUCKET_DOCUMENTS` | Default `documents` |
-| `OCI_BUCKET_CONTRACTS` | Default `contracts` |
+| `OCI_BUCKET_DOCUMENTS` | API bucket name for uploaded files |
+| `OCI_BUCKET_CONTRACTS` | API bucket name for contract objects (if used) |
+| `OCI_DOCUMENTS_PREFIX` | Optional key prefix, e.g. `Ricoh` or `Ricoh/` (normalized to end with `/`) |
+| `OCI_CONTRACTS_PREFIX` | Optional prefix for contract keys (same rules); wire uploads to this when you add contract flows |
 
 ---
 
 ## Part C — JWT and CORS (backend)
 
-Generate long random strings for JWT secrets (do not reuse across environments).
+The backend **requires** both secrets at startup (`backend/src/config/env.js`). If either is missing, the process exits.
+
+**`JWT_ACCESS_SECRET`** and **`JWT_REFRESH_SECRET`** must be:
+
+- **Different values** — never use the same string for both; if one key leaks, the other token class stays valid.
+- **Long and random** — treat them like passwords (32+ bytes of entropy is a reasonable minimum); not dictionary words or short strings.
+- **Stable per environment** — changing a secret **invalidates** all already-issued tokens signed with the old key (users must sign in again).
+
+The **access** secret signs short-lived API **access** JWTs. The **refresh** secret signs longer-lived **refresh** tokens stored server-side (or validated on refresh). Some features (e.g. signing short-lived read URLs) may also use the access secret — keep it as confidential as the refresh secret.
+
+Generate examples (run locally, then paste into `.env`):
+
+```powershell
+# OpenSSL (if installed)
+openssl rand -base64 48
+
+# Node
+node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+```
 
 | Variable | Purpose |
 |----------|---------|
-| `JWT_ACCESS_SECRET` | Signs access tokens |
-| `JWT_REFRESH_SECRET` | Signs refresh tokens |
+| `JWT_ACCESS_SECRET` | Signs access tokens (and related short-lived signatures) |
+| `JWT_REFRESH_SECRET` | Signs refresh tokens only |
 | `JWT_ACCESS_TTL` | e.g. `15m` |
 | `JWT_REFRESH_TTL` | e.g. `7d` |
 | `FRONTEND_ORIGIN` | CORS origin, e.g. `http://localhost:5173` |
@@ -195,7 +215,7 @@ npm run backend:dev
 - [ ] ADB: schema script applied without errors
 - [ ] Backend: `/health` returns OK
 - [ ] Sign up / sign in creates or loads user (Oracle `users` table)
-- [ ] Document upload stores object in `documents` bucket and `originator_documents.file_path` is set
+- [ ] Document upload stores object in the configured bucket (under `OCI_DOCUMENTS_PREFIX` if set) and `originator_documents.file_path` is set
 - [ ] Document preview/download works (signed read path through API)
 
 ---

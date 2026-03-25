@@ -8,6 +8,13 @@ function required(name) {
   return value;
 }
 
+/** Normalize OCI "folder" prefix: "Ricoh" or "/Ricoh/" → "Ricoh/" */
+function normalizeObjectPrefix(raw) {
+  if (!raw || !String(raw).trim()) return '';
+  const s = String(raw).trim().replace(/^\/+/g, '').replace(/\/+$/g, '');
+  return s ? `${s}/` : '';
+}
+
 export const env = {
   port: Number(process.env.PORT || 4000),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -34,5 +41,7 @@ export const env = {
     namespace: required('OCI_NAMESPACE'),
     bucketDocuments: process.env.OCI_BUCKET_DOCUMENTS || 'documents',
     bucketContracts: process.env.OCI_BUCKET_CONTRACTS || 'contracts',
+    documentsPrefix: normalizeObjectPrefix(process.env.OCI_DOCUMENTS_PREFIX || ''),
+    contractsPrefix: normalizeObjectPrefix(process.env.OCI_CONTRACTS_PREFIX || ''),
   },
 };
