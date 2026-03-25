@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ricoh Capital — Wireframe Page Map</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F6F3;
+    --surface: #FFFFFF;
+    --surface2: #F2F0EB;
+    --border: #E2DDD6;
+    --border-strong: #C8C2B8;
+    --text: #1A1916;
+    --text-2: #5C5852;
+    --text-3: #9A948C;
+    --coral: #C0462A;
+    --coral-light: #FDF0EC;
+    --coral-mid: #F5C4B0;
+    --blue: #1A5FA8;
+    --blue-light: #EBF3FC;
+    --blue-mid: #A8C9ED;
+    --gray-accent: #6B6760;
+    --gray-light: #EFEDE8;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .site-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .logo { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; }
+  .logo-mark { width: 28px; height: 28px; background: var(--coral); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; letter-spacing: -0.5px; }
+  .header-meta { display: flex; align-items: center; gap: 16px; }
+  .header-badge { font-size: 11px; font-weight: 500; background: var(--coral-light); color: var(--coral); padding: 3px 10px; border-radius: 20px; border: 1px solid var(--coral-mid); }
+  .header-count { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-3); }
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 40px 80px; }
+  .summary-strip { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 28px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 36px; gap: 20px; flex-wrap: wrap; }
+  .summary-main { display: flex; align-items: baseline; gap: 10px; }
+  .summary-number { font-size: 42px; font-weight: 300; color: var(--text); letter-spacing: -2px; line-height: 1; }
+  .summary-label { font-size: 14px; color: var(--text-2); }
+  .summary-pills { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pill { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid; }
+  .pill.coral { background: var(--coral-light); color: var(--coral); border-color: var(--coral-mid); }
+  .pill.blue { background: var(--blue-light); color: var(--blue); border-color: var(--blue-mid); }
+  .pill.gray { background: var(--gray-light); color: var(--gray-accent); border-color: var(--border-strong); }
+  .pill-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .pill.coral .pill-dot { background: var(--coral); }
+  .pill.blue .pill-dot { background: var(--blue); }
+  .pill.gray .pill-dot { background: var(--gray-accent); }
+  .section { margin-bottom: 32px; }
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .section-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; padding: 3px 9px; border-radius: 4px; border: 1px solid; white-space: nowrap; }
+  .section-tag.coral { background: var(--coral-light); color: var(--coral); border-color: var(--coral-mid); }
+  .section-tag.blue { background: var(--blue-light); color: var(--blue); border-color: var(--blue-mid); }
+  .section-tag.gray { background: var(--gray-light); color: var(--gray-accent); border-color: var(--border-strong); }
+  .section-title { font-size: 14px; font-weight: 500; color: var(--text); }
+  .section-count { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-3); margin-left: auto; }
+  .page-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .page-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s; position: relative; overflow: hidden; user-select: none; }
+  .page-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+  .page-card.coral::before { background: var(--coral); }
+  .page-card.blue::before { background: var(--blue); }
+  .page-card.gray::before { background: var(--border-strong); }
+  .page-card:hover { border-color: var(--border-strong); box-shadow: 0 2px 8px rgba(0,0,0,0.07); transform: translateY(-1px); }
+  .page-card.active { border-color: var(--border-strong); box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+  .page-card.coral.active { border-color: var(--coral-mid); }
+  .page-card.blue.active { border-color: var(--blue-mid); }
+  .page-num { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-3); margin-bottom: 5px; }
+  .page-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+  .page-desc { font-size: 11px; color: var(--text-2); line-height: 1.4; }
+  .chevron { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--text-3); transition: transform 0.2s, opacity 0.2s; opacity: 0; }
+  .page-card:hover .chevron { opacity: 1; }
+  .page-card.active .chevron { opacity: 1; transform: translateY(-50%) rotate(90deg); }
+  .detail-panel { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-top: 10px; animation: slideDown 0.18s ease; }
+  .detail-panel.open { display: block; }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  .detail-inner { display: flex; gap: 32px; flex-wrap: wrap; }
+  .detail-left { flex: 1; min-width: 200px; }
+  .detail-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .detail-subtitle { font-size: 12px; color: var(--text-3); margin-bottom: 16px; }
+  .detail-list { list-style: none; }
+  .detail-list li { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-2); padding: 6px 0; border-bottom: 1px solid var(--border); gap: 8px; }
+  .detail-list li:last-child { border-bottom: none; }
+  .item-name { flex: 1; }
+  .detail-tag { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--text-3); background: var(--surface2); padding: 2px 7px; border-radius: 4px; white-space: nowrap; border: 1px solid var(--border); }
+  .detail-actions { margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-primary { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 7px 16px; border-radius: 6px; border: 1px solid var(--coral); background: var(--coral); color: white; cursor: pointer; transition: opacity 0.15s; }
+  .btn-primary:hover { opacity: 0.87; }
+  .btn-secondary { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-2); cursor: pointer; transition: background 0.15s; }
+  .btn-secondary:hover { background: var(--surface2); }
+  .divider { height: 1px; background: var(--border); margin: 8px 0 28px; }
+  .shared-note { font-size: 11px; color: var(--text-3); margin-top: 8px; font-style: italic; }
+  .footer { border-top: 1px solid var(--border); padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; background: var(--surface); flex-wrap: wrap; gap: 8px; }
+  .footer-text { font-size: 11px; color: var(--text-3); }
+  @media (max-width: 700px) {
+    .main { padding: 24px 20px 60px; }
+    .site-header { padding: 0 20px; }
+    .summary-strip { flex-direction: column; align-items: flex-start; }
+    .page-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .detail-inner { flex-direction: column; }
+    .footer { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="logo">
+    <div class="logo-mark">RC</div>
+    Ricoh Capital
+  </div>
+  <div class="header-meta">
+    <span class="header-badge">Wireframe Planning</span>
+    <span class="header-count">22 pages total</span>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="summary-strip">
+    <div class="summary-main">
+      <div class="summary-number">22</div>
+      <div class="summary-label">wireframe pages<br><span style="font-size:12px;color:var(--text-3)">across 6 features</span></div>
+    </div>
+    <div class="summary-pills">
+      <div class="pill coral"><span class="pill-dot"></span>17 Customer Experience</div>
+      <div class="pill blue"><span class="pill-dot"></span>2 Lead &amp; Opp. Mgmt</div>
+      <div class="pill gray"><span class="pill-dot"></span>3 Shared / Global</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: RAPID ORIGINATOR ONBOARDING -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-tag coral">Customer Experience</span>
+      <span class="section-title">Rapid Originator Onboarding</span>
+      <span class="section-count">5 pages</span>
+    </div>
+    <div class="page-grid">
+      <div class="page-card coral" onclick="toggle('d1',this)"><div class="page-num">P01</div><div class="page-name">Registration form</div><div class="page-desc">Company &amp; contact details</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d2',this)"><div class="page-num">P02</div><div class="page-name">Document upload</div><div class="page-desc">KYC / compliance files</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d3',this)"><div class="page-num">P03</div><div class="page-name">Verification status</div><div class="page-desc">Automated check progress</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d4',this)"><div class="page-num">P04</div><div class="page-name">Admin review queue</div><div class="page-desc">Approve / reject / request info</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d5',this)"><div class="page-num">P05</div><div class="page-name">Welcome &amp; activation</div><div class="page-desc">Credentials + portal tour</div><span class="chevron">&#9654;</span></div>
+    </div>
+
+    <div class="detail-panel" id="d1"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P01 — Registration form</div><div class="detail-subtitle">First step of originator onboarding</div><ul class="detail-list"><li><span class="item-name">Company name, reg. number, address</span><span class="detail-tag">fields</span></li><li><span class="item-name">Primary contact + role</span><span class="detail-tag">fields</span></li><li><span class="item-name">Product line selection</span><span class="detail-tag">dropdown</span></li><li><span class="item-name">Terms acceptance</span><span class="detail-tag">checkbox</span></li><li><span class="item-name">Save &amp; continue CTA</span><span class="detail-tag">button</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d1',null)">Close</button></div></div></div></div>
+
+    <div class="detail-panel" id="d2"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P02 — Document upload</div><div class="detail-subtitle">KYC &amp; compliance file submission</div><ul class="detail-list"><li><span class="item-name">Required docs checklist</span><span class="detail-tag">list</span></li><li><span class="item-name">Drag &amp; drop upload zones</span><span class="detail-tag">upload</span></li><li><span class="item-name">File type / size validation</span><span class="detail-tag">inline</span></li><li><span class="item-name">Upload progress indicators</span><span class="detail-tag">state</span></li><li><span class="item-name">Back / submit for review CTA</span><span class="detail-tag">button</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d2',null)">Close</button></div></div></div></div>
+
+    <div class="detail-panel" id="d3"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P03 — Verification status</div><div class="detail-subtitle">Real-time compliance check progress</div><ul class="detail-list"><li><span class="item-name">Step tracker (submitted → checking → approved)</span><span class="detail-tag">stepper</span></li><li><span class="item-name">Per-document check results</span><span class="detail-tag">list</span></li><li><span class="item-name">Estimated completion time</span><span class="detail-tag">info</span></li><li><span class="item-name">Resubmit link if failed</span><span class="detail-tag">action</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d3',null)">Close</button></div></div></div></div>
+
+    <div class="detail-panel" id="d4"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P04 — Admin review queue</div><div class="detail-subtitle">Internal admin-facing queue</div><ul class="detail-list"><li><span class="item-name">Queue list with status filters</span><span class="detail-tag">table</span></li><li><span class="item-name">Originator detail drawer</span><span class="detail-tag">panel</span></li><li><span class="item-name">Approve / Reject / Request info actions</span><span class="detail-tag">buttons</span></li><li><span class="item-name">Notes / reason field</span><span class="detail-tag">textarea</span></li><li><span class="item-name">Audit trail</span><span class="detail-tag">log</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d4',null)">Close</button></div></div></div></div>
+
+    <div class="detail-panel" id="d5"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P05 — Welcome &amp; activation</div><div class="detail-subtitle">Successful onboarding confirmation</div><ul class="detail-list"><li><span class="item-name">Welcome message + logo</span><span class="detail-tag">header</span></li><li><span class="item-name">Login credentials display</span><span class="detail-tag">info</span></li><li><span class="item-name">Portal feature highlights</span><span class="detail-tag">cards</span></li><li><span class="item-name">First steps checklist</span><span class="detail-tag">todo</span></li><li><span class="item-name">Enter portal CTA</span><span class="detail-tag">button</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d5',null)">Close</button></div></div></div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 2: QUICK DEAL CAPTURE -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-tag coral">Customer Experience</span>
+      <span class="section-title">Quick Deal Capture</span>
+      <span class="section-count">4 pages</span>
+    </div>
+    <div class="page-grid">
+      <div class="page-card coral" onclick="toggle('d6',this)"><div class="page-num">P06</div><div class="page-name">Deal initiation</div><div class="page-desc">Customer + product select</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d7',this)"><div class="page-num">P07</div><div class="page-name">Asset &amp; financial details</div><div class="page-desc">Type, value, term, rates</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d8',this)"><div class="page-num">P08</div><div class="page-name">Deal review &amp; submit</div><div class="page-desc">Summary + confirm</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d9',this)"><div class="page-num">P09</div><div class="page-name">Submission confirmation</div><div class="page-desc">Ref number + status</div><span class="chevron">&#9654;</span></div>
+    </div>
+    <div class="detail-panel" id="d6"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P06 — Deal initiation</div><div class="detail-subtitle">Start point of a new deal</div><ul class="detail-list"><li><span class="item-name">Customer search / select</span><span class="detail-tag">autocomplete</span></li><li><span class="item-name">Product type dropdown</span><span class="detail-tag">dropdown</span></li><li><span class="item-name">Originator reference field</span><span class="detail-tag">field</span></li><li><span class="item-name">Draft save option</span><span class="detail-tag">link</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d6',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d7"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P07 — Asset &amp; financial details</div><div class="detail-subtitle">Core deal structuring screen</div><ul class="detail-list"><li><span class="item-name">Asset type, make, model, value</span><span class="detail-tag">fields</span></li><li><span class="item-name">Term, deposit, balloon</span><span class="detail-tag">fields</span></li><li><span class="item-name">Rate type (fixed / variable)</span><span class="detail-tag">toggle</span></li><li><span class="item-name">Live payment calculation</span><span class="detail-tag">computed</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d7',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d8"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P08 — Deal review &amp; submit</div><div class="detail-subtitle">Final check before submission</div><ul class="detail-list"><li><span class="item-name">Full deal summary card</span><span class="detail-tag">readonly</span></li><li><span class="item-name">Edit section links</span><span class="detail-tag">links</span></li><li><span class="item-name">Declaration checkbox</span><span class="detail-tag">checkbox</span></li><li><span class="item-name">Submit to credit CTA</span><span class="detail-tag">button</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d8',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d9"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P09 — Submission confirmation</div><div class="detail-subtitle">Post-submit success state</div><ul class="detail-list"><li><span class="item-name">Reference number prominent</span><span class="detail-tag">hero</span></li><li><span class="item-name">Expected SLA / next steps</span><span class="detail-tag">info</span></li><li><span class="item-name">Track deal link</span><span class="detail-tag">link</span></li><li><span class="item-name">Submit another deal CTA</span><span class="detail-tag">button</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d9',null)">Close</button></div></div></div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 3: ASSET PORTFOLIO -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-tag coral">Customer Experience</span>
+      <span class="section-title">Configurable Live Asset Portfolio</span>
+      <span class="section-count">4 pages</span>
+    </div>
+    <div class="page-grid">
+      <div class="page-card coral" onclick="toggle('d10',this)"><div class="page-num">P10</div><div class="page-name">Portfolio dashboard</div><div class="page-desc">All contracts, KPIs, filters</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d11',this)"><div class="page-num">P11</div><div class="page-name">View configurator</div><div class="page-desc">Columns, sort, save view</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d12',this)"><div class="page-num">P12</div><div class="page-name">Asset detail</div><div class="page-desc">Contract, payments, docs</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d13',this)"><div class="page-num">P13</div><div class="page-name">Export &amp; reports</div><div class="page-desc">CSV / scheduled reports</div><span class="chevron">&#9654;</span></div>
+    </div>
+    <div class="detail-panel" id="d10"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P10 — Portfolio dashboard</div><div class="detail-subtitle">Live view of all customer assets</div><ul class="detail-list"><li><span class="item-name">Summary KPI row (active, value, overdue)</span><span class="detail-tag">metric cards</span></li><li><span class="item-name">Filterable data table</span><span class="detail-tag">table</span></li><li><span class="item-name">Status badges per row</span><span class="detail-tag">badges</span></li><li><span class="item-name">Quick actions per row</span><span class="detail-tag">dropdown</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d10',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d11"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P11 — View configurator</div><div class="detail-subtitle">Customise table columns &amp; sorting</div><ul class="detail-list"><li><span class="item-name">Column visibility toggles</span><span class="detail-tag">checkboxes</span></li><li><span class="item-name">Sort order drag handles</span><span class="detail-tag">drag</span></li><li><span class="item-name">Save named view CTA</span><span class="detail-tag">button</span></li><li><span class="item-name">Saved views list</span><span class="detail-tag">list</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d11',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d12"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P12 — Asset detail</div><div class="detail-subtitle">Deep dive into a single contract</div><ul class="detail-list"><li><span class="item-name">Contract header (ID, status, customer)</span><span class="detail-tag">header</span></li><li><span class="item-name">Payment schedule table</span><span class="detail-tag">table</span></li><li><span class="item-name">Documents tab</span><span class="detail-tag">tab</span></li><li><span class="item-name">Activity / notes tab</span><span class="detail-tag">tab</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d12',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d13"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P13 — Export &amp; reports</div><div class="detail-subtitle">Data export &amp; scheduled reporting</div><ul class="detail-list"><li><span class="item-name">Export format select (CSV, XLSX)</span><span class="detail-tag">radio</span></li><li><span class="item-name">Field selection</span><span class="detail-tag">checkboxes</span></li><li><span class="item-name">Schedule recurring report</span><span class="detail-tag">toggle</span></li><li><span class="item-name">Download / email CTA</span><span class="detail-tag">button</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d13',null)">Close</button></div></div></div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 4: SELF SERVICE -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-tag coral">Customer Experience</span>
+      <span class="section-title">Customer / Partner Self Service</span>
+      <span class="section-count">4 pages</span>
+    </div>
+    <div class="page-grid">
+      <div class="page-card coral" onclick="toggle('d14',this)"><div class="page-num">P14</div><div class="page-name">Self-service login</div><div class="page-desc">SSO or credentials</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d15',this)"><div class="page-num">P15</div><div class="page-name">My dashboard</div><div class="page-desc">Contracts, quotes, alerts</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d16',this)"><div class="page-num">P16</div><div class="page-name">Account actions</div><div class="page-desc">Statements, service requests</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card coral" onclick="toggle('d17',this)"><div class="page-num">P17</div><div class="page-name">Notifications centre</div><div class="page-desc">Alerts, payments due</div><span class="chevron">&#9654;</span></div>
+    </div>
+    <div class="detail-panel" id="d14"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P14 — Self-service login</div><div class="detail-subtitle">Customer / partner portal entry</div><ul class="detail-list"><li><span class="item-name">Email + password fields</span><span class="detail-tag">fields</span></li><li><span class="item-name">SSO option</span><span class="detail-tag">button</span></li><li><span class="item-name">Forgot password link</span><span class="detail-tag">link</span></li><li><span class="item-name">Branding / trust mark</span><span class="detail-tag">layout</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d14',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d15"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P15 — My dashboard</div><div class="detail-subtitle">Customer home screen</div><ul class="detail-list"><li><span class="item-name">Active contracts summary</span><span class="detail-tag">cards</span></li><li><span class="item-name">Upcoming payments</span><span class="detail-tag">list</span></li><li><span class="item-name">Recent quotes</span><span class="detail-tag">list</span></li><li><span class="item-name">Notification bell</span><span class="detail-tag">icon</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d15',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d16"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P16 — Account actions</div><div class="detail-subtitle">Self-service request centre</div><ul class="detail-list"><li><span class="item-name">Download statement</span><span class="detail-tag">action</span></li><li><span class="item-name">Request early settlement</span><span class="detail-tag">form</span></li><li><span class="item-name">Request upgrade / variation</span><span class="detail-tag">form</span></li><li><span class="item-name">Contact us link</span><span class="detail-tag">link</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d16',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d17"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P17 — Notifications centre</div><div class="detail-subtitle">All system alerts in one place</div><ul class="detail-list"><li><span class="item-name">Notification list with type icons</span><span class="detail-tag">list</span></li><li><span class="item-name">Read / unread state</span><span class="detail-tag">state</span></li><li><span class="item-name">Mark all read action</span><span class="detail-tag">button</span></li><li><span class="item-name">Deep-link to related record</span><span class="detail-tag">link</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d17',null)">Close</button></div></div></div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 5: PROSPECT MANAGEMENT -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-tag blue">Lead &amp; Opp. Mgmt</span>
+      <span class="section-title">Prospect / Customer Management</span>
+      <span class="section-count">3 pages</span>
+    </div>
+    <div class="page-grid">
+      <div class="page-card blue" onclick="toggle('d18',this)"><div class="page-num">P18</div><div class="page-name">Prospect list</div><div class="page-desc">Search, filter, pipeline stage</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card blue" onclick="toggle('d19',this)"><div class="page-num">P19</div><div class="page-name">Prospect profile</div><div class="page-desc">Contacts, notes, activity</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card blue" onclick="toggle('d20',this)"><div class="page-num">P20</div><div class="page-name">Qualify / convert</div><div class="page-desc">Stage, score, link account</div><span class="chevron">&#9654;</span></div>
+    </div>
+    <div class="detail-panel" id="d18"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P18 — Prospect list</div><div class="detail-subtitle">CRM-style prospect management table</div><ul class="detail-list"><li><span class="item-name">Searchable table with stage filter</span><span class="detail-tag">table</span></li><li><span class="item-name">Pipeline stage pills</span><span class="detail-tag">badges</span></li><li><span class="item-name">Assign to user</span><span class="detail-tag">dropdown</span></li><li><span class="item-name">Create new prospect CTA</span><span class="detail-tag">button</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d18',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d19"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P19 — Prospect profile</div><div class="detail-subtitle">360 view of a single prospect</div><ul class="detail-list"><li><span class="item-name">Company header + key fields</span><span class="detail-tag">header</span></li><li><span class="item-name">Contacts list</span><span class="detail-tag">list</span></li><li><span class="item-name">Activity timeline</span><span class="detail-tag">timeline</span></li><li><span class="item-name">Log call / email / note</span><span class="detail-tag">buttons</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d19',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d20"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P20 — Qualify / convert</div><div class="detail-subtitle">Move prospect to opportunity or customer</div><ul class="detail-list"><li><span class="item-name">Qualification score inputs</span><span class="detail-tag">fields</span></li><li><span class="item-name">Stage dropdown</span><span class="detail-tag">dropdown</span></li><li><span class="item-name">Convert to customer modal</span><span class="detail-tag">modal</span></li><li><span class="item-name">Link to deal / account</span><span class="detail-tag">autocomplete</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d20',null)">Close</button></div></div></div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 6: QUOTE GENERATION -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-tag blue">Lead &amp; Opp. Mgmt</span>
+      <span class="section-title">Quick Quote Generation</span>
+      <span class="section-count">2 pages</span>
+    </div>
+    <div class="page-grid">
+      <div class="page-card blue" onclick="toggle('d21',this)"><div class="page-num">P21</div><div class="page-name">Quote builder</div><div class="page-desc">Asset, term, rate, live calc</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card blue" onclick="toggle('d22',this)"><div class="page-num">P22</div><div class="page-name">Quote output</div><div class="page-desc">PDF preview, send, eSign</div><span class="chevron">&#9654;</span></div>
+    </div>
+    <div class="detail-panel" id="d21"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P21 — Quote builder</div><div class="detail-subtitle">Interactive quote creation tool</div><ul class="detail-list"><li><span class="item-name">Customer + asset select</span><span class="detail-tag">autocomplete</span></li><li><span class="item-name">Term, deposit, rate type inputs</span><span class="detail-tag">fields</span></li><li><span class="item-name">Live monthly payment calc</span><span class="detail-tag">computed</span></li><li><span class="item-name">Multiple scenario tabs</span><span class="detail-tag">tabs</span></li><li><span class="item-name">Generate quote CTA</span><span class="detail-tag">button</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d21',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="d22"><div class="detail-inner"><div class="detail-left"><div class="detail-title">P22 — Quote output</div><div class="detail-subtitle">Final quote delivery &amp; actions</div><ul class="detail-list"><li><span class="item-name">Branded PDF preview pane</span><span class="detail-tag">iframe</span></li><li><span class="item-name">Send by email / shareable link</span><span class="detail-tag">button</span></li><li><span class="item-name">Save &amp; link to opportunity</span><span class="detail-tag">button</span></li><li><span class="item-name">eSign initiation option</span><span class="detail-tag">button</span></li><li><span class="item-name">Edit quote link</span><span class="detail-tag">link</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('d22',null)">Close</button></div></div></div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SHARED -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-tag gray">Shared / Global</span>
+      <span class="section-title">Shared patterns — used across all features</span>
+      <span class="section-count">3 pages</span>
+    </div>
+    <div class="page-grid">
+      <div class="page-card gray" onclick="toggle('ds1',this)"><div class="page-num">S01</div><div class="page-name">Global navigation</div><div class="page-desc">Sidebar + top bar shell</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card gray" onclick="toggle('ds2',this)"><div class="page-num">S02</div><div class="page-name">Empty / error states</div><div class="page-desc">Zero data, 404, forbidden</div><span class="chevron">&#9654;</span></div>
+      <div class="page-card gray" onclick="toggle('ds3',this)"><div class="page-num">S03</div><div class="page-name">Notifications &amp; toasts</div><div class="page-desc">Success, warning, error</div><span class="chevron">&#9654;</span></div>
+    </div>
+    <p class="shared-note">Build these first — every other page depends on the navigation shell.</p>
+    <div class="detail-panel" id="ds1"><div class="detail-inner"><div class="detail-left"><div class="detail-title">S01 — Global navigation shell</div><div class="detail-subtitle">The wrapper for every logged-in page</div><ul class="detail-list"><li><span class="item-name">Left sidebar with nav items</span><span class="detail-tag">nav</span></li><li><span class="item-name">Top bar with user menu</span><span class="detail-tag">header</span></li><li><span class="item-name">Breadcrumb pattern</span><span class="detail-tag">breadcrumb</span></li><li><span class="item-name">Active state per feature</span><span class="detail-tag">state</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('ds1',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="ds2"><div class="detail-inner"><div class="detail-left"><div class="detail-title">S02 — Empty / error states</div><div class="detail-subtitle">Graceful handling of edge cases</div><ul class="detail-list"><li><span class="item-name">Empty list state (no results)</span><span class="detail-tag">state</span></li><li><span class="item-name">API error state</span><span class="detail-tag">state</span></li><li><span class="item-name">403 / 404 page</span><span class="detail-tag">state</span></li><li><span class="item-name">Retry / back actions</span><span class="detail-tag">button</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('ds2',null)">Close</button></div></div></div></div>
+    <div class="detail-panel" id="ds3"><div class="detail-inner"><div class="detail-left"><div class="detail-title">S03 — Notifications &amp; toasts</div><div class="detail-subtitle">System feedback patterns</div><ul class="detail-list"><li><span class="item-name">Success toast (green)</span><span class="detail-tag">toast</span></li><li><span class="item-name">Warning toast (amber)</span><span class="detail-tag">toast</span></li><li><span class="item-name">Error toast (red)</span><span class="detail-tag">toast</span></li><li><span class="item-name">Persistent alert banner</span><span class="detail-tag">banner</span></li></ul><div class="detail-actions"><button class="btn-secondary" onclick="toggle('ds3',null)">Close</button></div></div></div></div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <span class="footer-text">Ricoh Capital — Wireframe Page Map v1.0 &nbsp;&middot;&nbsp; 22 screens across 6 features</span>
+  <span class="footer-text">CX: P01–P17 &nbsp;&middot;&nbsp; Lead &amp; Opp: P18–P22 &nbsp;&middot;&nbsp; Shared: S01–S03</span>
+</footer>
+
+<script>
+  function toggle(id, card) {
+    var panel = document.getElementById(id);
+    var isOpen = panel.classList.contains('open');
+    document.querySelectorAll('.detail-panel').forEach(function(p) { p.classList.remove('open'); });
+    document.querySelectorAll('.page-card').forEach(function(c) { c.classList.remove('active'); });
+    if (!isOpen) {
+      panel.classList.add('open');
+      if (card) card.classList.add('active');
+      setTimeout(function() { panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 50);
+    }
+  }
+</script>
+</body>
+</html>
