@@ -2,27 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Mail, CheckCircle, KeyRound } from 'lucide-react';
 import { authClient } from '../../lib/backendClient';
 import { FormField, LoadingSpinner } from '../../components/shared/FormField';
-import { ZoroWordmark } from '../../components/shared/ZoroLogo';
-
-const requestSchema = z.object({
-  email: z.string().email('Enter a valid email address'),
-});
-
-const resetSchema = z.object({
-  newPassword: z
-    .string()
-    .min(8, 'At least 8 characters')
-    .regex(/[A-Z]/, 'Must include an uppercase letter')
-    .regex(/[0-9]/, 'Must include a number'),
-  confirmPassword: z.string(),
-}).refine(d => d.newPassword === d.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
+import { RicohWordmark } from '../../components/shared/RicohLogo';
+import { passwordSchema, resetPasswordRequestSchema } from '../../schemas';
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -77,8 +61,8 @@ export default function ForgotPasswordPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const requestForm = useForm({ resolver: zodResolver(requestSchema) });
-  const resetForm = useForm({ resolver: zodResolver(resetSchema) });
+  const requestForm = useForm({ resolver: zodResolver(resetPasswordRequestSchema) });
+  const resetForm = useForm({ resolver: zodResolver(passwordSchema) });
 
   const onRequestSubmit = async ({ email }) => {
     setServerError('');
@@ -117,7 +101,7 @@ export default function ForgotPasswordPage() {
     <div className="auth-page">
       <div style={{ width: '100%', maxWidth: 420 }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <ZoroWordmark size={34} gap={11} fontSize={17} />
+          <RicohWordmark size={34} gap={11} fontSize={17} />
         </div>
 
         <div className="auth-card">

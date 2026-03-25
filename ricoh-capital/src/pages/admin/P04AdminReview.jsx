@@ -24,6 +24,12 @@ const CHECK_STATUS_META = {
   failed:  { label: 'Failed',  color: 'var(--red)',   icon: <XCircle size={12} /> },
 };
 
+function formatDisplayValue(value) {
+  if (Array.isArray(value)) return value.join(', ');
+  if (value && typeof value === 'object') return JSON.stringify(value);
+  return value;
+}
+
 function VerificationChecks({ checks, applicationId }) {
   const updateCheck = useUpdateCheckStatus();
 
@@ -110,11 +116,11 @@ function AppCard({ app, onApprove, onReject, onHold }) {
                 ['Contact', app.profiles?.full_name],
                 ['Email', app.profiles?.email],
                 ['Job title', app.contact_job_title],
-                ['Products', (app.product_lines || []).join(', ')],
+                ['Products', app.product_lines],
               ].map(([k, v]) => (
                 <div key={k} style={{ background: 'var(--bg)', borderRadius: 6, padding: '8px 10px' }}>
                   <div style={{ fontSize: 10, color: 'var(--tx4)', marginBottom: 2 }}>{k}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{v || '—'}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>{formatDisplayValue(v) || '—'}</div>
                 </div>
               ))}
             </div>

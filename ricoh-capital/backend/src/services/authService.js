@@ -89,7 +89,7 @@ export async function getProfile(userId) {
   return withConnection(async (conn) => {
     const result = await conn.execute(
       `SELECT id, email, role, full_name, company_name, onboarding_status
-       FROM users WHERE id = :id`,
+       FROM users WHERE id = HEXTORAW(:id)`,
       { id: userId },
       { outFormat: oracledb.OUT_FORMAT_OBJECT },
     );

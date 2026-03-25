@@ -47,19 +47,40 @@ function useRecentActivity() {
     queryFn: async () => {
       const [recentDeals, recentApps] = await Promise.all([
         db.deals()
-          .select('id, reference_number, customer_name, status, created_at, originator:originator_id(company_name)')
+          .select('*')
           .in('status', ['submitted', 'under_review'])
-          .order('created_at', { ascending: false })
-          .limit(5),
+          .order('created_at', { ascending: false }),
         db.applications()
-          .select('id, status, created_at, profiles:user_id(full_name, company_name)')
+          .select('*')
           .in('status', ['submitted', 'under_review'])
-          .order('created_at', { ascending: false })
-          .limit(5),
+          .order('created_at', { ascending: false }),
       ]);
+      if (recentDeals.error || recentApps.error) {
+        throw recentDeals.error || recentApps.error;
+      }
+
+      const deals = (recentDeals.data || []).slice(0, 5);
+      const apps = (recentApps.data || []).slice(0, 5);
+      const originatorIds = [...new Set(deals.map((deal) => deal.originator_id).filter(Boolean))];
+      const appUserIds = [...new Set(apps.map((app) => app.user_id).filter(Boolean))];
+      const profileIds = [...new Set([...originatorIds, ...appUserIds])];
+
+      const profilesResult = profileIds.length
+        ? await db.profiles().select('*').in('id', profileIds)
+        : { data: [], error: null };
+      if (profilesResult.error) throw profilesResult.error;
+
+      const profilesById = Object.fromEntries((profilesResult.data || []).map((profile) => [profile.id, profile]));
+
       return {
-        recentDeals: recentDeals.data || [],
-        recentApps: recentApps.data || [],
+        recentDeals: deals.map((deal) => ({
+          ...deal,
+          originator: profilesById[deal.originator_id] || null,
+        })),
+        recentApps: apps.map((app) => ({
+          ...app,
+          profiles: profilesById[app.user_id] || null,
+        })),
       };
     },
     staleTime: 1000 * 60,

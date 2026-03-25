@@ -1,4 +1,36 @@
 -- Oracle Autonomous DB baseline schema replacing legacy platform coupling.
+--
+-- IMPORTANT:
+-- This script assumes a clean application schema. If objects like USERS,
+-- DEALS, or CONTRACTS already exist from an earlier attempt or legacy schema,
+-- Oracle will raise ORA-00955 and any dependent foreign keys will fail after
+-- that. Run the cleanup block below first when rebuilding a dev/test schema.
+--
+-- Optional cleanup for repeatable local/dev runs:
+-- BEGIN
+--   FOR t IN (
+--     SELECT table_name
+--     FROM user_tables
+--     WHERE table_name IN (
+--       'PAYMENT_SCHEDULE',
+--       'CONTRACTS',
+--       'DEAL_AMENDMENTS',
+--       'DEALS',
+--       'VERIFICATION_CHECKS',
+--       'ORIGINATOR_DOCUMENTS',
+--       'ORIGINATOR_APPLICATIONS',
+--       'PROSPECT_ACTIVITIES',
+--       'PROSPECTS',
+--       'QUOTES',
+--       'NOTIFICATIONS',
+--       'AUDIT_LOGS',
+--       'USERS'
+--     )
+--   ) LOOP
+--     EXECUTE IMMEDIATE 'DROP TABLE ' || t.table_name || ' CASCADE CONSTRAINTS PURGE';
+--   END LOOP;
+-- END;
+-- /
 
 CREATE TABLE users (
   id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,

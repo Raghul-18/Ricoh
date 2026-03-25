@@ -47,7 +47,7 @@ export default function P09Confirmation() {
       <div className="info-banner blue" style={{ marginBottom: 24 }}>
         <Info size={15} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 11, lineHeight: 1.7 }}>
-          <strong>Next steps:</strong> A Zoro Capital credit analyst will review your application within 2 business days. You'll receive an email when a decision is made.
+          <strong>Next steps:</strong> A Ricoh Capital credit analyst will review your application within 2 business days. You'll receive an email when a decision is made.
         </div>
       </div>
 

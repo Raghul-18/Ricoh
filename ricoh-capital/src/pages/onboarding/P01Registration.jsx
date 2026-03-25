@@ -132,7 +132,7 @@ export default function P01Registration() {
         <div className="card" style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Product lines <span className="req">*</span></div>
           <div style={{ fontSize: 12, color: 'var(--tx3)', marginBottom: 14 }}>
-            Select all products your firm will originate through Zoro Capital
+            Select all products your firm will originate through Ricoh Capital
           </div>
           {errors.productLines && (
             <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 10 }}>{errors.productLines.message}</div>

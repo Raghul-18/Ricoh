@@ -127,7 +127,7 @@ const STATUS_META = {
 };
 
 const TIMELINE_STEPS = [
-  { key: 'submitted',    label: 'Deal submitted',     sub: 'Sent to Zoro Capital for review' },
+  { key: 'submitted',    label: 'Deal submitted',     sub: 'Sent to Ricoh Capital for review' },
   { key: 'under_review', label: 'Credit review',       sub: 'A credit analyst is reviewing the deal' },
   { key: 'approved',     label: 'Decision made',       sub: 'Contract issued and active' },
 ];

@@ -71,11 +71,15 @@ async function checkOracle() {
 
   let connection;
   try {
-    connection = await oracledb.getConnection({
+    const connectionConfig = {
       user,
       password,
       connectString,
-    });
+    };
+    if (walletDir) {
+      connectionConfig.configDir = walletDir;
+    }
+    connection = await oracledb.getConnection(connectionConfig);
     const result = await connection.execute('SELECT 1 AS chk FROM dual');
     const row = result.rows?.[0];
     if (row?.[0] === 1) {

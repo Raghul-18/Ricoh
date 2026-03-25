@@ -79,7 +79,10 @@ export const authClient = {
   },
   async signInWithPassword({ email, password }) {
     const result = await authSignIn(email, password);
-    notifyAuth('SIGNED_IN', result.session);
+    notifyAuth('SIGNED_IN', {
+      ...result.session,
+      user: result.user,
+    });
     return { data: result, error: null };
   },
   async signUp(payload) {
@@ -91,7 +94,10 @@ export const authClient = {
       role: payload?.options?.data?.role || payload.role || 'originator',
     };
     const result = await authSignUp(normalized);
-    notifyAuth('SIGNED_IN', result.session);
+    notifyAuth('SIGNED_IN', {
+      ...result.session,
+      user: result.user,
+    });
     return { data: result, error: null };
   },
   async signOut() {

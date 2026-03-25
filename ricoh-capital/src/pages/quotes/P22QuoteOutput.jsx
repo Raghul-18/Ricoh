@@ -5,7 +5,7 @@ import { useQuotes } from '../../hooks/useQuotes';
 import { useAppContext } from '../../context/AppContext';
 import { useDealStore } from '../../store/dealStore';
 import { LoadingSpinner } from '../../components/shared/FormField';
-import { ZoroMark } from '../../components/shared/ZoroLogo';
+import { RicohMark } from '../../components/shared/RicohLogo';
 
 const STATUS_META = {
   draft:    { label: 'Draft',    color: 'var(--tx3)' },
@@ -25,8 +25,8 @@ function QuoteCard({ quote, onSend, onAccept, onDecline }) {
       <div style={{ background: 'var(--coral)', padding: '24px 28px', color: '#fff' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <ZoroMark size={34} />
-            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-.3px', color: '#fff' }}>Zoro Capital</div>
+            <RicohMark size={34} />
+            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-.3px', color: '#fff' }}>Ricoh Capital</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 12, opacity: .8 }}>Quote reference</div>
@@ -81,7 +81,7 @@ function QuoteCard({ quote, onSend, onAccept, onDecline }) {
 
         <div style={{ fontSize: 10, color: 'var(--tx4)', marginTop: 16, lineHeight: 1.6 }}>
           This quotation is indicative only and subject to credit approval. All figures include VAT where applicable.
-          APR quoted is representative. Zoro Capital Limited is authorised and regulated by the Financial Conduct Authority.
+          APR quoted is representative. Ricoh Capital Limited is authorised and regulated by the Financial Conduct Authority.
           Valid for 30 days from the date above.
         </div>
       </div>

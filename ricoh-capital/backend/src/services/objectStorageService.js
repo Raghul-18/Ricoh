@@ -74,5 +74,10 @@ export async function getObjectStream({ bucketName, objectName }) {
     bucketName,
     objectName,
   });
-  return response.value;
+  return {
+    stream: response.value,
+    contentType: response.contentType || response.headers?.['content-type'] || 'application/octet-stream',
+    contentLength: response.contentLength || response.headers?.['content-length'],
+    etag: response.eTag || response.headers?.etag,
+  };
 }

@@ -22,6 +22,7 @@ export function useApplication(options = {}) {
     enabled: !!user,
     refetchInterval,
     refetchOnWindowFocus,
+    retry: false,
   });
 }
 
@@ -61,6 +62,7 @@ export function useUploadDocument() {
         status: 'uploaded',
         fileName: file.name,
         fileSize: file.size,
+        mimeType: file.type,
         filePath: path,
         failureReason: null,
       });
@@ -121,8 +123,8 @@ export function useSubmitApplication() {
           file_name:      doc.fileName,
           file_path:      doc.filePath,
           file_size:      doc.fileSize,
+          mime_type:      doc.mimeType,
           status:         'uploaded',
-          uploaded_at:    new Date().toISOString(),
         }));
 
       if (uploadedDocs.length > 0) {
@@ -198,6 +200,7 @@ export function useVerificationChecks(applicationId) {
     },
     enabled: !!applicationId,
     refetchInterval: 5000,
+    retry: false,
   });
 }
 

@@ -69,7 +69,7 @@ export const useDealStore = create(
   }),
   }),
   {
-    name: 'zoro-deal',
+    name: 'ricoh-deal',
     partialize: (s) => ({ initiation: s.initiation, assetDetails: s.assetDetails }),
   }
 ));

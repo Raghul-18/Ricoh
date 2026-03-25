@@ -111,7 +111,7 @@ export default function P08ReviewSubmit() {
           <div className="info-banner blue" style={{ marginBottom: 16 }}>
             <Info size={14} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
             <div style={{ fontSize: 11, lineHeight: 1.6 }}>
-              On submission, your deal will enter the Zoro Capital credit review queue. You'll be notified of the decision within 2 business days.
+              On submission, your deal will enter the Ricoh Capital credit review queue. You'll be notified of the decision within 2 business days.
             </div>
           </div>
 

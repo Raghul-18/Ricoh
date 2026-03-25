@@ -3,7 +3,7 @@ import { X, Download, FileText, ChevronLeft, ChevronRight, Loader, Archive } fro
 import JSZip from 'jszip';
 import { getDocumentSignedUrl, downloadDocumentBlob } from '../../lib/backendClient';
 
-function FilePreview({ url, fileName, mimeType }) {
+function FilePreview({ url, fileName, mimeType, filePath }) {
   if (!url) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 400, color: 'var(--tx4)', gap: 12 }}>
       <FileText size={48} />
@@ -11,8 +11,9 @@ function FilePreview({ url, fileName, mimeType }) {
     </div>
   );
 
-  const isImage = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(fileName || '');
-  const isPdf   = /\.pdf$/i.test(fileName || '') || mimeType === 'application/pdf';
+  const previewName = fileName || filePath || '';
+  const isImage = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(previewName) || String(mimeType || '').startsWith('image/');
+  const isPdf   = /\.pdf$/i.test(previewName) || mimeType === 'application/pdf';
 
   if (isImage) return (
     <img src={url} alt={fileName} style={{ maxWidth: '100%', maxHeight: 560, objectFit: 'contain', borderRadius: 6 }} />
@@ -152,7 +153,7 @@ export default function DocumentViewer({ documents, initialIndex = 0, onClose })
                 <Loader size={28} style={{ animation: 'spin 1s linear infinite', color: 'var(--coral)' }} />
                 <span style={{ fontSize: 12 }}>Loading document…</span>
               </div>
-            : <FilePreview url={currentUrl} fileName={doc?.file_name} mimeType={doc?.mime_type} />
+            : <FilePreview url={currentUrl} fileName={doc?.file_name} mimeType={doc?.mime_type} filePath={doc?.file_path} />
           }
         </div>
 

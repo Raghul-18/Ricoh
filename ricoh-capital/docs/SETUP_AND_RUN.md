@@ -1,4 +1,4 @@
-# Setup and Run — Zoro Capital (Ricoh Capital)
+# Setup and Run — Ricoh Capital
 
 This guide walks through provisioning **Oracle Autonomous Database**, **OCI Object Storage**, configuring **backend** and **frontend** environment variables, and running the app locally on Windows (paths use PowerShell-style examples).
 

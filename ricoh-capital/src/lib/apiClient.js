@@ -35,7 +35,15 @@ async function request(url, options = {}) {
   } catch {
     body = null;
   }
-  if (!res.ok) throw new Error(body?.error || body?.message || res.statusText);
+  if (!res.ok) {
+    const message =
+      (typeof body?.error === 'string' && body.error) ||
+      body?.error?.message ||
+      (typeof body?.message === 'string' && body.message) ||
+      body?.message?.message ||
+      res.statusText;
+    throw new Error(message);
+  }
   return body;
 }
 
@@ -60,8 +68,16 @@ export async function authSignUp(payload) {
 export async function authGetSession() {
   const token = getAccessToken();
   if (!token) return { user: null, session: null };
-  const body = await request(`${AUTH_BASE}/session`);
-  return body;
+  try {
+    const body = await request(`${AUTH_BASE}/session`);
+    return body;
+  } catch (error) {
+    if (error.message === 'Invalid token') {
+      clearTokens();
+      return { user: null, session: null };
+    }
+    throw error;
+  }
 }
 
 export async function authGetMe() {

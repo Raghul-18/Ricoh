@@ -92,7 +92,7 @@ export default function P03Verification() {
         <div className="card" style={{ marginBottom: 20, borderColor: 'var(--red-m)', background: 'var(--red-l)' }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--red)', marginBottom: 8 }}>Application not approved</div>
           <div style={{ fontSize: 13, color: 'var(--tx2)', lineHeight: 1.6 }}>
-            {app?.rejection_reason || app?.admin_notes || 'Please contact support@zorocapital.com for more information.'}
+            {app?.rejection_reason || app?.admin_notes || 'Please contact support@ricohcapital.com for more information.'}
           </div>
         </div>
       )}

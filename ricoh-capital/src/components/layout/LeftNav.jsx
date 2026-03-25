@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import { ZoroWordmark, ZoroMark } from '../shared/ZoroLogo';
+import { RicohWordmark, RicohMark } from '../shared/RicohLogo';
 
 const ICON_SIZE = 15;
 
@@ -114,8 +114,8 @@ export default function LeftNav({ collapsed, navOpen, onToggle, onClose }) {
       <div className="leftnav-logo">
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
           {collapsed
-            ? <ZoroMark size={26} />
-            : <ZoroWordmark size={28} gap={9} fontSize={14} />
+            ? <RicohMark size={26} />
+            : <RicohWordmark size={28} gap={9} fontSize={14} />
           }
         </div>
         {/* Desktop collapse button — hidden on mobile via CSS */}

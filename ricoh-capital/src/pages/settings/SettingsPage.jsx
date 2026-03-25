@@ -1,27 +1,12 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { User, Building2, Lock, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { db, authClient } from '../../lib/backendClient';
 import { useAppContext } from '../../context/AppContext';
 import { FormField, LoadingSpinner } from '../../components/shared/FormField';
-
-const profileSchema = z.object({
-  full_name:    z.string().min(2, 'Name must be at least 2 characters'),
-  company_name: z.string().optional(),
-});
-
-const passwordSchema = z.object({
-  newPassword:     z.string().min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
-    .regex(/[0-9]/, 'Must contain at least one number'),
-  confirmPassword: z.string(),
-}).refine(d => d.newPassword === d.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
+import { passwordSchema, profileSchema } from '../../schemas';
 
 function ProfileSection({ profile, onSave }) {
   const [saving, setSaving] = useState(false);

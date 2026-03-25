@@ -138,7 +138,7 @@ function InviteAdminModal({ onClose }) {
         </div>
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontSize: 12, color: 'var(--tx3)', display: 'block', marginBottom: 5 }}>Work email *</label>
-          <input className="form-input" type="email" placeholder="jane@zorocapital.com" value={email} onChange={e => setEmail(e.target.value)} />
+          <input className="form-input" type="email" placeholder="jane@ricohcapital.com" value={email} onChange={e => setEmail(e.target.value)} />
         </div>
         <div className="info-banner blue" style={{ marginBottom: 20 }}>
           <Mail size={13} style={{ color: 'var(--blue)', flexShrink: 0 }} />

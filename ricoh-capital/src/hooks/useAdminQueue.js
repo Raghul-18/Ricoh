@@ -8,24 +8,53 @@ export function useAdminQueue() {
   return useQuery({
     queryKey: keys.adminQueue(),
     queryFn: async () => {
-      const { data, error } = await db.applications()
-        .select(`
-          *,
-          profiles:user_id (
-            id, email, full_name, company_name, avatar_initials, created_at
-          ),
-          originator_documents (
-            id, document_type, display_name, file_name, file_path, file_size, mime_type, status
-          ),
-          verification_checks (
-            id, check_type, display_name, status, result_detail, checked_at
-          )
-        `)
+      const { data: applications, error } = await db.applications()
+        .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      if (!applications?.length) return [];
+
+      const userIds = [...new Set(applications.map((app) => app.user_id).filter(Boolean))];
+      const applicationIds = applications.map((app) => app.id).filter(Boolean);
+
+      const [profilesResult, documentsResult, checksResult] = await Promise.all([
+        userIds.length
+          ? db.profiles().select('*').in('id', userIds)
+          : Promise.resolve({ data: [], error: null }),
+        applicationIds.length
+          ? db.documents().select('*').in('application_id', applicationIds).order('created_at')
+          : Promise.resolve({ data: [], error: null }),
+        applicationIds.length
+          ? db.checks().select('*').in('application_id', applicationIds).order('created_at')
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (profilesResult.error || documentsResult.error || checksResult.error) {
+        throw profilesResult.error || documentsResult.error || checksResult.error;
+      }
+
+      const profilesById = Object.fromEntries((profilesResult.data || []).map((profile) => [profile.id, profile]));
+      const documentsByApplicationId = groupBy(documentsResult.data || [], 'application_id');
+      const checksByApplicationId = groupBy(checksResult.data || [], 'application_id');
+
+      return applications.map((app) => ({
+        ...app,
+        profiles: profilesById[app.user_id] || null,
+        originator_documents: documentsByApplicationId[app.id] || [],
+        verification_checks: checksByApplicationId[app.id] || [],
+      }));
     },
   });
+}
+
+function groupBy(rows, key) {
+  return rows.reduce((acc, row) => {
+    const value = row?.[key];
+    if (!value) return acc;
+    if (!acc[value]) acc[value] = [];
+    acc[value].push(row);
+    return acc;
+  }, {});
 }
 
 // ── Unified review decision (approve / reject / on_hold) ───
@@ -39,7 +68,7 @@ export function useReviewApplication() {
         status,
         admin_notes: notes || null,
         reviewed_by: user?.id,
-        reviewed_at: new Date().toISOString(),
+        reviewed_at: new Date(),
       };
 
       if (status === 'approved') {
@@ -48,18 +77,34 @@ export function useReviewApplication() {
         update.risk_score = null;
       }
 
-      const { data, error } = await db.applications()
-        .update(update)
-        .eq('id', id)
-        .select('user_id')
-        .single();
+      const { error } = await db.applications().update(update).eq('id', id);
       if (error) throw error;
+
+      const { data, error: fetchError } = await db.applications()
+        .select('user_id')
+        .eq('id', id)
+        .single();
+      if (fetchError) throw fetchError;
+
+      const onboardingStatusMap = {
+        approved: 'approved',
+        rejected: 'rejected',
+        on_hold: 'under_review',
+        info_requested: 'info_requested',
+      };
+      const onboardingStatus = onboardingStatusMap[status];
+      if (data?.user_id && onboardingStatus) {
+        const { error: userUpdateError } = await db.profiles()
+          .update({ onboarding_status: onboardingStatus })
+          .eq('id', data.user_id);
+        if (userUpdateError) throw userUpdateError;
+      }
 
       // Notify originator
       const notifMap = {
         approved: {
           title: 'Application approved',
-          body: 'Your application has been approved. You now have full access to the Zoro Capital portal.',
+          body: 'Your application has been approved. You now have full access to the Ricoh Capital portal.',
         },
         rejected: {
           title: 'Application not approved',
@@ -147,7 +192,7 @@ export function useUpdateCheckStatus() {
         .update({
           status,
           result_detail: detail || null,
-          checked_at: new Date().toISOString(),
+          checked_at: new Date(),
         })
         .eq('id', id);
       if (error) throw error;

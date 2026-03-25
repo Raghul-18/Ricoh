@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../auth/AuthContext';
 import { signupSchema } from '../../schemas';
 import { FormField, LoadingSpinner } from '../../components/shared/FormField';
-import { ZoroWordmark } from '../../components/shared/ZoroLogo';
+import { RicohWordmark } from '../../components/shared/RicohLogo';
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -62,12 +62,12 @@ export default function SignupPage() {
     <div className="auth-page">
       <div style={{ width: '100%', maxWidth: 460 }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <ZoroWordmark size={34} gap={11} fontSize={17} />
+          <RicohWordmark size={34} gap={11} fontSize={17} />
         </div>
 
         <div className="auth-card">
           <div className="auth-title">Create an account</div>
-          <div className="auth-sub">Apply to become a Zoro Capital originator</div>
+          <div className="auth-sub">Apply to become a Ricoh Capital originator</div>
 
           {serverError && (
             <div className="info-banner red" style={{ marginBottom: 16 }}>

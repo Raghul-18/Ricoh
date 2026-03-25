@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ShieldOff, LogOut } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import { ZoroWordmark } from '../../components/shared/ZoroLogo';
+import { RicohWordmark } from '../../components/shared/RicohLogo';
 
 export default function AccountDeactivatedPage() {
   const { signOut } = useAuth();
@@ -16,7 +16,7 @@ export default function AccountDeactivatedPage() {
     <div className="auth-page">
       <div style={{ width: '100%', maxWidth: 460, textAlign: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <ZoroWordmark size={34} gap={11} fontSize={17} />
+          <RicohWordmark size={34} gap={11} fontSize={17} />
         </div>
 
         <div className="auth-card" style={{ padding: '40px 32px' }}>
@@ -33,7 +33,7 @@ export default function AccountDeactivatedPage() {
 
           <div style={{ background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--rl)', padding: '12px 16px', marginBottom: 24, textAlign: 'left' }}>
             <div style={{ fontSize: 11, color: 'var(--tx4)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px' }}>Need help?</div>
-            <div style={{ fontSize: 12, color: 'var(--tx3)' }}>Email <strong>support@zorocapital.com</strong> or call <strong>0800 000 0000</strong></div>
+            <div style={{ fontSize: 12, color: 'var(--tx3)' }}>Email <strong>support@ricohcapital.com</strong> or call <strong>0800 000 0000</strong></div>
           </div>
 
           <button

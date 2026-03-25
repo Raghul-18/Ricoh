@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../auth/AuthContext';
 import { loginSchema } from '../../schemas';
 import { FormField, LoadingSpinner } from '../../components/shared/FormField';
-import { ZoroWordmark } from '../../components/shared/ZoroLogo';
+import { RicohWordmark } from '../../components/shared/RicohLogo';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -35,12 +35,12 @@ export default function LoginPage() {
     <div className="auth-page">
       <div style={{ width: '100%', maxWidth: 420 }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <ZoroWordmark size={34} gap={11} fontSize={17} />
+          <RicohWordmark size={34} gap={11} fontSize={17} />
         </div>
 
         <div className="auth-card">
           <div className="auth-title">Sign in</div>
-          <div className="auth-sub">Sign in to your Zoro Capital account</div>
+          <div className="auth-sub">Sign in to your Ricoh Capital account</div>
 
           {serverError && (
             <div className="info-banner red" style={{ marginBottom: 16 }}>
@@ -96,7 +96,7 @@ export default function LoginPage() {
           <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--tx4)', letterSpacing: '.6px', marginBottom: 10 }}>Demo accounts</div>
           {[
             { role: 'Originator', email: 'james@acmefinance.co.uk',  password: 'Test123!' },
-            { role: 'Admin',      email: 'admin@zorocapital.com',    password: 'Admin123!' },
+            { role: 'Admin',      email: 'admin@ricohcapital.com',   password: 'Admin123!' },
             { role: 'Customer',   email: 'contact@techworks.co.uk',  password: 'Test123!' },
           ].map(d => (
             <div key={d.role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 11 }}>

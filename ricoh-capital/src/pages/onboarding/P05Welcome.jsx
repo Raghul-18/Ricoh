@@ -53,7 +53,7 @@ export default function P05Welcome() {
           </div>
         </div>
         <div style={{ fontWeight: 700, fontSize: 24, letterSpacing: '-.4px', marginBottom: 10 }}>
-          Welcome to Zoro Capital, {displayName}
+          Welcome to Ricoh Capital, {displayName}
         </div>
         <div style={{ fontSize: 14, color: 'var(--tx3)', lineHeight: 1.7 }}>
           <strong style={{ color: 'var(--tx2)' }}>{companyName}</strong> has been approved and your originator account is now active.
@@ -80,7 +80,7 @@ export default function P05Welcome() {
       <div className="info-banner blue" style={{ marginBottom: 24 }}>
         <CheckCircle size={15} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 11, color: 'var(--tx2)', lineHeight: 1.7 }}>
-          Your dedicated relationship manager will be in touch within 24 hours. In the meantime, email <strong>support@zorocapital.com</strong> with any questions.
+          Your dedicated relationship manager will be in touch within 24 hours. In the meantime, email <strong>support@ricohcapital.com</strong> with any questions.
         </div>
       </div>
 
