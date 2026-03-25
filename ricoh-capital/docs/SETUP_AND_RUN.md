@@ -38,7 +38,12 @@ This guide walks through provisioning **Oracle Autonomous Database**, **OCI Obje
 
 1. On the ADB detail page: **Database actions → Download wallet**.
 2. Unzip to a folder on your machine, e.g. `C:\oracle\wallet\adb_wallet\`
-3. Set **`ORACLE_WALLET_DIR`** in backend `.env` to that folder (the directory containing `tnsnames.ora`, `sqlnet.ora`, etc.).
+3. Set **`ORACLE_WALLET_DIR`** in backend `.env` to that folder — the directory that **directly** contains `tnsnames.ora`, `sqlnet.ora`, and the wallet files (not a parent of another `wallet` subfolder unless those files live there).
+4. Set **`ORACLE_CONNECT_STRING`** to the **TNS alias** from `tnsnames.ora` for the service you want (e.g. `something_high`, `something_medium`, `something_low`), **not** the full Easy Connect string. The driver resolves the alias using the wallet directory.
+
+   After `npm run check-connections` (see Part D2b), the Oracle section should report a successful `SELECT 1 FROM dual`.
+
+   On Windows, **Oracle Instant Client** is often required for `node-oracledb` to use wallet/TLS; see [node-oracledb installation](https://node-oracledb.readthedocs.io/en/latest/user_guide/installation.html).
 
 ### A3) Run schema migration
 
@@ -55,8 +60,8 @@ This guide walks through provisioning **Oracle Autonomous Database**, **OCI Obje
 |----------|---------|
 | `ORACLE_USER` | DB user (e.g. `ADMIN` or app schema user) |
 | `ORACLE_PASSWORD` | Password |
-| `ORACLE_CONNECT_STRING` | Connect descriptor / service name (often matches alias in `tnsnames.ora` when using wallet) |
-| `ORACLE_WALLET_DIR` | Folder path to unzipped wallet (often required for ADB) |
+| `ORACLE_CONNECT_STRING` | With wallet: **TNS alias** from `tnsnames.ora` (e.g. `adb1_high`). Without wallet: connect descriptor / Easy Connect string. |
+| `ORACLE_WALLET_DIR` | **Required** for Autonomous DB with downloaded wallet: absolute path to the unzipped folder (contains `tnsnames.ora`, `sqlnet.ora`). Backend sets `oracledb.configDir` to this path. |
 
 ---
 
@@ -161,14 +166,27 @@ copy .env.example .env
 
 Edit **`backend/.env`** and fill **every** required variable (empty values cause startup to fail — see `backend/src/config/env.js`).
 
-### D2) Install dependencies and start
+### D2) Install dependencies
 
 ```powershell
 npm install
+```
+
+### D2b) Verify Oracle (wallet) + OCI before full startup (optional)
+
+This script only needs DB and OCI env vars — **not** `JWT_*` — so you can validate the wallet path and API key before filling the rest of `.env`:
+
+```powershell
+npm run check-connections
+```
+
+### D3) Start the API
+
+```powershell
 npm run dev
 ```
 
-### D3) Health check
+### D4) Health check
 
 Open a browser or use curl:
 
@@ -213,6 +231,7 @@ npm run backend:dev
 ## Part F — Quick verification checklist
 
 - [ ] ADB: schema script applied without errors
+- [ ] `npm run check-connections` passes (wallet path + Oracle + OCI)
 - [ ] Backend: `/health` returns OK
 - [ ] Sign up / sign in creates or loads user (Oracle `users` table)
 - [ ] Document upload stores object in the configured bucket (under `OCI_DOCUMENTS_PREFIX` if set) and `originator_documents.file_path` is set
@@ -246,7 +265,7 @@ Host `dist/` on your static CDN; place the API behind HTTPS and set `FRONTEND_OR
 | Symptom | Likely cause |
 |---------|----------------|
 | Backend exits on “Missing required env var” | Incomplete `backend/.env` |
-| Oracle connection errors | Wrong `ORACLE_CONNECT_STRING`, wallet path, or Instant Client not installed |
+| Oracle connection errors | With wallet: `ORACLE_CONNECT_STRING` must be the **TNS alias** from `tnsnames.ora`; `ORACLE_WALLET_DIR` must point at the folder that **contains** `tnsnames.ora` / `sqlnet.ora`. On Windows, install **Instant Client** if the driver fails to load. |
 | OCI 401 / NotAuthenticated | Wrong OCIDs, fingerprint, or private key path |
 | OCI 403 | IAM policy missing for Object Storage on user/group |
 | OCI 404 on bucket | Wrong region, namespace, or bucket name |

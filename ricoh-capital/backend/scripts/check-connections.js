@@ -32,6 +32,23 @@ function requireEnv(name) {
   return v.trim();
 }
 
+function validateWalletDir(walletDir) {
+  if (!fs.existsSync(walletDir)) {
+    throw new Error(`ORACLE_WALLET_DIR does not exist: ${walletDir}`);
+  }
+  if (!fs.statSync(walletDir).isDirectory()) {
+    throw new Error(`ORACLE_WALLET_DIR is not a directory: ${walletDir}`);
+  }
+  const need = ['tnsnames.ora', 'sqlnet.ora'];
+  const missing = need.filter((f) => !fs.existsSync(path.join(walletDir, f)));
+  if (missing.length) {
+    throw new Error(
+      `Wallet folder is missing ${missing.join(', ')} — unzip the ADB wallet so these files sit directly in ORACLE_WALLET_DIR`
+    );
+  }
+  ok(`Wallet folder looks valid (${need.join(', ')} present)`);
+}
+
 async function checkOracle() {
   console.log('\nOracle database');
   const user = requireEnv('ORACLE_USER');
@@ -40,8 +57,16 @@ async function checkOracle() {
   const walletDir = process.env.ORACLE_WALLET_DIR?.trim();
 
   if (walletDir) {
+    try {
+      validateWalletDir(walletDir);
+    } catch (err) {
+      fail(err.message || String(err));
+      return false;
+    }
     oracledb.configDir = walletDir;
-    ok(`Wallet / configDir: ${walletDir}`);
+    ok(`oracledb.configDir → ${walletDir}`);
+  } else {
+    ok('ORACLE_WALLET_DIR unset (use it for Autonomous DB wallet / mutual TLS)');
   }
 
   let connection;
