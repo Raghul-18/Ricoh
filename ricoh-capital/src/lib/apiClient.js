@@ -223,6 +223,13 @@ export async function callAdminEndpoint(name, payload) {
   });
 }
 
+export async function callApiEndpoint(path, payload, method = 'POST') {
+  return request(`${API_BASE}${path}`, {
+    method,
+    body: payload == null ? undefined : JSON.stringify(payload),
+  });
+}
+
 export async function getFxRate(baseCurrency, targetCurrency) {
   try {
     return await fetchFxFallbackRate(baseCurrency, targetCurrency);

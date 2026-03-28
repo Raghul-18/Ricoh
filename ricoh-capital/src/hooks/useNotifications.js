@@ -23,7 +23,7 @@ export function useNotifications() {
       })
       .subscribe();
     return () => realtimeClient.removeChannel(channel);
-  }, [user?.id]);
+  }, [user?.id, qc]);
 
   return useQuery({
     queryKey: keys.notifications(user?.id),

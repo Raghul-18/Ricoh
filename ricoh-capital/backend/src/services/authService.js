@@ -4,6 +4,8 @@ import oracledb from 'oracledb';
 import { env } from '../config/env.js';
 import { withConnection } from '../db/oracle.js';
 
+const PASSWORD_POLICY = /^(?=.*[A-Z])(?=.*[0-9]).{8,}$/;
+
 function signTokens(user) {
   const baseClaims = {
     sub: user.id,
@@ -122,5 +124,25 @@ export function verifyAccessToken(token) {
 
 export function rotateAccessToken(refreshToken) {
   const decoded = jwt.verify(refreshToken, env.jwt.refreshSecret);
-  return jwt.sign({ sub: decoded.sub }, env.jwt.accessSecret, { expiresIn: env.jwt.accessTtl });
+  return withConnection(async (conn) => {
+    const result = await conn.execute(
+      `SELECT id, email, role, full_name, company_name, onboarding_status,
+              language_code, locale_code, primary_currency_code
+       FROM users WHERE id = HEXTORAW(:id)`,
+      { id: decoded.sub },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT },
+    );
+    const row = result.rows?.[0];
+    if (!row) throw new Error('User not found');
+    const user = normalizeRow(row);
+    return jwt.sign({ sub: user.id, email: user.email, role: user.role }, env.jwt.accessSecret, {
+      expiresIn: env.jwt.accessTtl,
+    });
+  });
+}
+
+export function validatePassword(password) {
+  if (!PASSWORD_POLICY.test(String(password || ''))) {
+    throw new Error('Password must be at least 8 characters and include an uppercase letter and number');
+  }
 }

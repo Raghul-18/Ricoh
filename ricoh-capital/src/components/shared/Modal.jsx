@@ -1,52 +1,55 @@
 import { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
+import { useLocale } from '../../context/LocaleContext';
 
 export default function Modal() {
   const { modal, closeModal } = useAppContext();
+  const { t } = useLocale();
   const [note, setNote] = useState('');
 
-  const handleConfirm = async () => {
-    if (modal.onConfirm) await modal.onConfirm(note);
+  const handleClose = () => {
     setNote('');
     closeModal();
   };
 
-  const handleBgClick = (e) => {
-    if (e.target === e.currentTarget) closeModal();
+  const handleConfirm = async () => {
+    if (modal.onConfirm) await modal.onConfirm(note);
+    handleClose();
   };
 
   const isConfirm = modal.type === 'confirm';
 
   return (
-    <div className={`modal-bg ${modal.visible ? 'show' : ''}`} onClick={handleBgClick}>
+    <div className={`modal-bg ${modal.visible ? 'show' : ''}`} onClick={(event) => event.target === event.currentTarget && handleClose()}>
       <div className="modal">
         <div className="modal-title">
-          {modal.title || (isConfirm ? 'Confirm' : 'Action')}
+          {modal.title || (isConfirm ? t('admin.confirm') : t('common.close'))}
         </div>
         {modal.body && <div className="modal-desc">{modal.body}</div>}
 
-        {/* Show note field for non-confirm modals */}
         {!isConfirm && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Note (optional)</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>
+              {t('deals.notes')} (optional)
+            </div>
             <textarea
               className="form-input"
               rows={3}
-              placeholder="Add a note…"
+              placeholder="Add a note..."
               value={note}
-              onChange={e => setNote(e.target.value)}
+              onChange={(event) => setNote(event.target.value)}
             />
           </div>
         )}
 
         <div className="modal-actions">
-          <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
+          <button className="btn btn-ghost" onClick={handleClose}>{t('admin.cancel')}</button>
           <button
             className="btn btn-primary"
             style={modal.type === 'reject' ? { background: 'var(--red)', border: 'none' } : undefined}
             onClick={handleConfirm}
           >
-            {modal.confirmLabel || (isConfirm ? 'Confirm' : 'OK')}
+            {modal.confirmLabel || (isConfirm ? t('admin.confirm') : t('common.close'))}
           </button>
         </div>
       </div>

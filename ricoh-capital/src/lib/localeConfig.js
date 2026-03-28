@@ -2,6 +2,7 @@ export const SUPPORTED_LOCALES = [
   { locale: 'en-GB', language: 'en', currency: 'GBP', label: 'English (UK)' },
   { locale: 'en-US', language: 'en', currency: 'USD', label: 'English (US)' },
   { locale: 'en-IN', language: 'en', currency: 'INR', label: 'English (India)' },
+  { locale: 'fr-CA', language: 'fr', currency: 'CAD', label: 'Francais (Canada)' },
   { locale: 'fr-FR', language: 'fr', currency: 'EUR', label: 'Francais' },
   { locale: 'de-DE', language: 'de', currency: 'EUR', label: 'Deutsch' },
 ];

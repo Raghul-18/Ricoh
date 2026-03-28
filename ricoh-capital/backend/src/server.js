@@ -8,6 +8,7 @@ import queryRoutes from './routes/queryRoutes.js';
 import storageRoutes from './routes/storageRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import fxRoutes from './routes/fxRoutes.js';
+import contractRoutes from './routes/contractRoutes.js';
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', queryRoutes);
 app.use('/api', storageRoutes);
 app.use('/api', adminRoutes);
+app.use('/api', contractRoutes);
 app.use('/api/fx', fxRoutes);
 
 app.use((err, _req, res, _next) => {

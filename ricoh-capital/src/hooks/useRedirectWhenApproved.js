@@ -10,6 +10,6 @@ export function useRedirectWhenApproved() {
   useEffect(() => {
     if (loading || !profile) return;
     if (profile.role !== 'originator' || !isApproved) return;
-    navigate('/onboarding/welcome', { replace: true });
-  }, [loading, profile?.role, isApproved, navigate]);
+    navigate('/portfolio', { replace: true });
+  }, [loading, profile, isApproved, navigate]);
 }

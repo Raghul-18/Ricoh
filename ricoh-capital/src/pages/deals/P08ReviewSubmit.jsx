@@ -3,14 +3,13 @@ import { ArrowLeft, Check, Info, Send } from 'lucide-react';
 import { useDealStore } from '../../store/dealStore';
 import { useSubmitDeal } from '../../hooks/useDeals';
 import { useAppContext } from '../../context/AppContext';
-import { useAuth } from '../../auth/AuthContext';
 import { LoadingSpinner } from '../../components/shared/FormField';
 import { useLocale } from '../../context/LocaleContext';
+import { getFinancedAmount, getPrincipalAmount } from '../../lib/dealConfig';
 
 export default function P08ReviewSubmit() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
-  const { initiation, assetDetails, getMonthlyPayment, getTotalPayable } = useDealStore();
+  const { initiation, dealDetails, getMonthlyPayment, getTotalPayable } = useDealStore();
   const submitDeal = useSubmitDeal();
   const { showToast } = useAppContext();
   const { formatCurrency, t } = useLocale();
@@ -40,7 +39,7 @@ export default function P08ReviewSubmit() {
       {rows.filter(([, value]) => value !== undefined && value !== '' && value !== null).map(([label, value]) => (
         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: 6, borderBottom: '1px solid var(--bdr)', marginBottom: 6 }}>
           <span style={{ color: 'var(--tx3)' }}>{label}</span>
-          <span style={{ fontWeight: 500 }}>{value}</span>
+          <span style={{ fontWeight: 500, textAlign: 'right', maxWidth: 240 }}>{value}</span>
         </div>
       ))}
     </div>
@@ -57,7 +56,7 @@ export default function P08ReviewSubmit() {
       </div>
 
       <div className="steps-row" style={{ marginBottom: 24 }}>
-        {['Initiation', 'Asset details', 'Review & submit'].map((step, index) => (
+        {['Initiation', 'Deal details', 'Review & submit'].map((step, index) => (
           <div key={step} className={`step ${index === 2 ? 'active' : 'done'}`}>
             <div className="step-dot">{index < 2 ? <Check size={12} /> : 3}</div>
             <div className="step-label">{step}</div>
@@ -67,28 +66,23 @@ export default function P08ReviewSubmit() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16 }}>
         <div>
-          <Section title="Submission details" rows={[['Submitted by', profile?.company_name || profile?.full_name || 'You']]} />
           <Section title="Client & deal" rows={[
             ['Client name', initiation.customerName],
+            ['Client email', initiation.customerEmail || 'Not provided'],
             ['Product type', initiation.productType],
+            ['Product family', initiation.productFamily.replace('_', ' ')],
             ['Deal currency', currencyCode],
             ['Your reference', initiation.originatorReference],
             ['Preferred start', initiation.preferredStartDate || 'Not specified'],
             ['Notes', initiation.notes || 'None'],
           ]} />
-          <Section title="Asset" rows={[
-            ['Type', assetDetails.assetType],
-            ['Make & model', `${assetDetails.make} ${assetDetails.model}`],
-            ['Year', assetDetails.year],
-            ['Asset value', formatCurrency(assetDetails.assetValue || 0, currencyCode)],
-          ]} />
-          <Section title="Finance structure" rows={[
-            ['Term', `${assetDetails.termMonths} months`],
-            ['Rate type', assetDetails.rateType],
-            ['APR', '7.2%'],
-            ['Deposit', assetDetails.deposit ? formatCurrency(assetDetails.deposit, currencyCode) : 'None'],
-            ['Balloon', assetDetails.balloon ? formatCurrency(assetDetails.balloon, currencyCode) : 'None'],
-            ['Amount financed', formatCurrency((assetDetails.assetValue || 0) - (assetDetails.deposit || 0) - (assetDetails.balloon || 0), currencyCode)],
+          <Section title="Commercial details" rows={[
+            ['Principal amount', formatCurrency(getPrincipalAmount(dealDetails, initiation.productFamily), currencyCode)],
+            ['Amount financed', formatCurrency(getFinancedAmount(dealDetails, initiation.productFamily), currencyCode)],
+            ['Rate type', dealDetails.rateType],
+            ['APR', `${Number(dealDetails.apr || 0).toFixed(1)}%`],
+            ['Term', `${dealDetails.termMonths} months`],
+            ['Summary', dealDetails.equipmentDescription || dealDetails.purpose || `${dealDetails.make || ''} ${dealDetails.model || ''}`.trim() || dealDetails.assetType],
           ]} />
         </div>
 
@@ -107,13 +101,12 @@ export default function P08ReviewSubmit() {
               <span style={{ color: 'var(--tx3)' }}>{t('deals.dealCurrency')}</span>
               <span style={{ fontWeight: 600 }}>{currencyCode}</span>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--tx4)', marginTop: 10 }}>{t('deals.originalCurrencyLocked')}</div>
           </div>
 
           <div className="info-banner blue" style={{ marginBottom: 16 }}>
             <Info size={14} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
             <div style={{ fontSize: 11, lineHeight: 1.6 }}>
-              On submission, your deal enters the Ricoh Capital credit review queue. A GBP reporting value will be frozen for reporting, while the original deal currency remains unchanged.
+              On submission, your deal enters the Ricoh Capital credit review queue and keeps the structured product-family payload for contract and signature workflows.
             </div>
           </div>
 
@@ -122,7 +115,7 @@ export default function P08ReviewSubmit() {
           </button>
 
           <button className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} onClick={() => navigate('/deals/assets')}>
-            <ArrowLeft size={14} /> Edit asset details
+            <ArrowLeft size={14} /> Edit deal details
           </button>
         </div>
       </div>

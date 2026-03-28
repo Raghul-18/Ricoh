@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 
 // ── Admin review queue (all applications) ─────────────────
 export function useAdminQueue() {
+  const { isAdmin } = useAuth();
   return useQuery({
     queryKey: keys.adminQueue(),
     queryFn: async () => {
@@ -44,6 +45,7 @@ export function useAdminQueue() {
         verification_checks: checksByApplicationId[app.id] || [],
       }));
     },
+    enabled: !!isAdmin,
   });
 }
 
@@ -68,7 +70,7 @@ export function useReviewApplication() {
         status,
         admin_notes: notes || null,
         reviewed_by: user?.id,
-        reviewed_at: new Date(),
+        reviewed_at: new Date().toISOString(),
       };
 
       if (status === 'approved') {
@@ -192,7 +194,7 @@ export function useUpdateCheckStatus() {
         .update({
           status,
           result_detail: detail || null,
-          checked_at: new Date(),
+          checked_at: new Date().toISOString(),
         })
         .eq('id', id);
       if (error) throw error;

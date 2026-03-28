@@ -24,8 +24,8 @@ export function FormField({ label, required, error, children, hint }) {
 export function LoadingSpinner({ size = 16 }) {
   return (
     <div style={{
-      width: size, height: size, border: `2px solid rgba(255,255,255,0.3)`,
-      borderTopColor: '#fff', borderRadius: '50%',
+      width: size, height: size, border: `2px solid rgba(17,24,39,0.15)`,
+      borderTopColor: 'var(--coral)', borderRadius: '50%',
       animation: 'spin 0.6s linear infinite',
     }} />
   );

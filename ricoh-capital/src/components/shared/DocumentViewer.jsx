@@ -61,7 +61,7 @@ export default function DocumentViewer({ documents, initialIndex = 0, onClose })
     }
     fetchUrls();
     return () => { cancelled = true; };
-  }, [current]);
+  }, [current, signedUrls, documents, onClose]);
 
   const handleDownloadCurrent = () => {
     const url = signedUrls[doc?.file_path];
@@ -104,7 +104,7 @@ export default function DocumentViewer({ documents, initialIndex = 0, onClose })
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [current, documents.length]);
+  }, [current, documents.length, onClose]);
 
   const currentUrl = signedUrls[doc?.file_path];
 

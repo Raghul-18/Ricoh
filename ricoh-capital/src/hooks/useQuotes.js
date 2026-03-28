@@ -62,14 +62,16 @@ export function useSendQuote() {
         .single();
       if (error) throw error;
 
-      // Notify originator
-      await db.notifications().insert({
-        user_id: user.id,
-        title: `Quote sent to ${customerName}`,
-        body: 'The customer will receive an email with the quote details.',
-        type: 'quote_update',
-        related_id: quoteId,
-      });
+      const { data: admins } = await db.profiles().select('id').eq('role', 'admin');
+      if (admins?.length) {
+        await db.notifications().insert(admins.map((admin) => ({
+          user_id: admin.id,
+          title: `Quote sent to ${customerName}`,
+          body: 'A customer quote has been sent and is ready for follow-up.',
+          type: 'quote_update',
+          related_id: quoteId,
+        })));
+      }
 
       return data;
     },
@@ -132,8 +134,8 @@ export function useDeclineQuote() {
 }
 
 // Calculate monthly payment
-export function calcMonthly(assetValue, deposit, termMonths, aprPct = 7.2) {
-  const financed = assetValue - deposit;
+export function calcMonthly(assetValue, deposit, termMonths, aprPct = 7.2, balloon = 0) {
+  const financed = assetValue - deposit - balloon;
   if (financed <= 0 || termMonths <= 0) return 0;
   const r = aprPct / 100 / 12;
   return Math.round((financed * r) / (1 - Math.pow(1 + r, -termMonths)));

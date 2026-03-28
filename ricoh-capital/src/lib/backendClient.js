@@ -4,6 +4,7 @@ import {
   authSignIn,
   authSignOut,
   authSignUp,
+  callApiEndpoint,
   callAdminEndpoint,
   convertFxAmount,
   getFxRate,
@@ -155,6 +156,9 @@ export const db = {
   notifications: () => new QueryBuilder('notifications'),
   auditLogs: () => new QueryBuilder('audit_logs'),
   amendments: () => new QueryBuilder('deal_amendments'),
+  contractSignatures: () => new QueryBuilder('contract_signatures'),
+  contractClosureRequests: () => new QueryBuilder('contract_closure_requests'),
+  customerAccessCredentials: () => new QueryBuilder('customer_access_credentials'),
 };
 
 export const fxClient = {
@@ -194,6 +198,10 @@ export async function downloadDocumentBlob(filePath) {
 
 export async function invokeAdminFunction(name, body = {}) {
   return callAdminEndpoint(name, body);
+}
+
+export async function invokeApi(path, body = {}, method = 'POST') {
+  return callApiEndpoint(path, body, method);
 }
 
 export async function logAudit(entityType, entityId, action, details = {}) {

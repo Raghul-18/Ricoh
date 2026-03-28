@@ -65,7 +65,10 @@ export function verifySignedReadUrl({ bucketName, objectName, exp, sig }) {
     .createHmac('sha256', env.jwt.accessSecret)
     .update(`${bucketName}:${objectName}:${exp}`)
     .digest('hex');
-  return expected === sig;
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  const actualBuffer = Buffer.from(String(sig), 'utf8');
+  if (expectedBuffer.length !== actualBuffer.length) return false;
+  return crypto.timingSafeEqual(expectedBuffer, actualBuffer);
 }
 
 export async function getObjectStream({ bucketName, objectName }) {

@@ -9,7 +9,7 @@ export function useProspects() {
     queryKey: keys.prospects(user?.id),
     queryFn: async () => {
       const { data, error } = await db.prospects()
-        .select('*, assigned_profile:assigned_to(full_name, avatar_initials)')
+        .select('*')
         .eq('originator_id', user.id)
         .order('updated_at', { ascending: false });
       if (error) throw error;
@@ -39,7 +39,7 @@ export function useProspectActivities(prospectId) {
     queryKey: keys.prospectActivities(prospectId),
     queryFn: async () => {
       const { data, error } = await db.activities()
-        .select('*, created_by_profile:created_by(full_name, avatar_initials)')
+        .select('*')
         .eq('prospect_id', prospectId)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -59,7 +59,6 @@ export function useCreateProspect() {
         .select()
         .single();
       if (error) throw error;
-      // Log creation activity
       await db.activities().insert({
         prospect_id: data.id,
         activity_type: 'created',
@@ -72,17 +71,13 @@ export function useCreateProspect() {
   });
 }
 
-// Can be called as useUpdateProspect() with { prospectId, data }
-// OR as useUpdateProspect(id) and mutateAsync(updateData) — scoped form
 export function useUpdateProspect(scopedId) {
   const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload) => {
-      // Scoped form: useUpdateProspect(id) + mutateAsync({ field: value })
-      // Classic form: useUpdateProspect() + mutateAsync({ prospectId, data })
       const prospectId = scopedId || payload.prospectId;
-      const formData   = scopedId ? payload : payload.data;
+      const formData = scopedId ? payload : payload.data;
       const { data, error } = await db.prospects()
         .update({ ...formData, updated_at: new Date().toISOString() })
         .eq('id', prospectId)
@@ -133,27 +128,11 @@ export function useLogActivity() {
   });
 }
 
-// Scoped activity creation — useCreateActivity(prospectId)
-// mutateAsync({ type, notes }) — `notes` is stored in `description` column
 export function useCreateActivity(prospectId) {
-  const { user } = useAuth();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ type, notes }) => {
-      const { data, error } = await db.activities()
-        .insert({
-          prospect_id: prospectId,
-          activity_type: type,
-          description: notes,
-          created_by: user.id,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.prospectActivities(prospectId) });
-    },
-  });
+  const logActivity = useLogActivity();
+  return {
+    ...logActivity,
+    mutate: (payload, options) => logActivity.mutate({ prospectId, activityType: payload.type, description: payload.notes }, options),
+    mutateAsync: (payload, options) => logActivity.mutateAsync({ prospectId, activityType: payload.type, description: payload.notes }, options),
+  };
 }

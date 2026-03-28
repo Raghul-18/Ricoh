@@ -37,14 +37,16 @@ export function useRequestAmendment() {
         .single();
       if (error) throw error;
 
-      // Notify admin(s) via a system notification
-      await db.notifications().insert({
-        user_id: user.id,
-        title: 'Amendment request submitted',
-        body: `Your ${amendmentType.replace(/_/g, ' ')} request has been received and is under review.`,
-        type: 'deal_update',
-        related_id: dealId,
-      });
+      const { data: admins } = await db.profiles().select('id').eq('role', 'admin');
+      if (admins?.length) {
+        await db.notifications().insert(admins.map((admin) => ({
+          user_id: admin.id,
+          title: 'Amendment request submitted',
+          body: `${amendmentType.replace(/_/g, ' ')} requested for deal ${dealId}.`,
+          type: 'deal_update',
+          related_id: dealId,
+        })));
+      }
 
       return data;
     },
@@ -56,6 +58,7 @@ export function useRequestAmendment() {
 
 // Admin: fetch all pending amendments
 export function useAllAmendments(statusFilter = null) {
+  const { isAdmin } = useAuth();
   return useQuery({
     queryKey: [...keys.adminAmendments(), statusFilter],
     queryFn: async () => {
@@ -71,6 +74,7 @@ export function useAllAmendments(statusFilter = null) {
       if (error) throw error;
       return data || [];
     },
+    enabled: !!isAdmin,
   });
 }
 

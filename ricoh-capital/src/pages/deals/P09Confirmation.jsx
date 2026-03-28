@@ -6,7 +6,7 @@ import { useLocale } from '../../context/LocaleContext';
 
 export default function P09Confirmation() {
   const navigate = useNavigate();
-  const { submittedRefNumber, initiation, assetDetails, getMonthlyPayment, reset } = useDealStore();
+  const { submittedRefNumber, initiation, dealDetails, getMonthlyPayment, reset } = useDealStore();
   const { formatCurrency, t } = useLocale();
 
   useEffect(() => {
@@ -34,12 +34,12 @@ export default function P09Confirmation() {
           [t('deals.referenceNumber'), submittedRefNumber, true],
           ['Customer', initiation.customerName],
           ['Product', initiation.productType],
+          ['Family', initiation.productFamily.replace('_', ' ')],
           ['Deal currency', currencyCode],
           ['Your reference', initiation.originatorReference],
-          ['Asset', `${assetDetails.year} ${assetDetails.make} ${assetDetails.model}`],
-          ['Asset value', formatCurrency(assetDetails.assetValue || 0, currencyCode)],
+          ['Summary', dealDetails.equipmentDescription || dealDetails.purpose || `${dealDetails.make || ''} ${dealDetails.model || ''}`.trim() || dealDetails.assetType],
           [t('deals.monthlyPayment'), formatCurrency(monthly, currencyCode)],
-          ['Term', `${assetDetails.termMonths} months`],
+          ['Term', `${dealDetails.termMonths} months`],
         ].map(([label, value, mono]) => (
           <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: 6, borderBottom: '1px solid var(--bdr)', marginBottom: 6 }}>
             <span style={{ color: 'var(--tx3)' }}>{label}</span>
@@ -51,7 +51,7 @@ export default function P09Confirmation() {
       <div className="info-banner blue" style={{ marginBottom: 24 }}>
         <Info size={15} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 11, lineHeight: 1.7 }}>
-          <strong>Next steps:</strong> A Ricoh Capital credit analyst will review your application within 2 business days. The submitted record keeps its original currency, and future views can also show converted values in your current primary currency.
+          <strong>Next steps:</strong> A Ricoh Capital credit analyst will review your application. If approved, the admin will generate the customer temporary login and both parties will complete in-app signatures before the contract becomes fully active.
         </div>
       </div>
 

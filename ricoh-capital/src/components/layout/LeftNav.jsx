@@ -111,7 +111,7 @@ export default function LeftNav({ collapsed, navOpen, onToggle, onClose }) {
         <button onClick={onToggle} className="nav-collapse-btn desktop-only" title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}>
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
-        <button onClick={onClose} className="nav-collapse-btn mobile-only" title={t('sidebar.closeMenu')} style={{ display: 'none' }}>
+        <button onClick={onClose} className="nav-collapse-btn mobile-only" title={t('sidebar.closeMenu')}>
           <ChevronLeft size={14} />
         </button>
       </div>

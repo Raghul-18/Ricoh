@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { getProfile, loginUser, registerUser, rotateAccessToken } from '../services/authService.js';
+import { getProfile, loginUser, registerUser, rotateAccessToken, validatePassword } from '../services/authService.js';
 import { requireAuth } from '../middleware/auth.js';
 import { withConnection } from '../db/oracle.js';
 
@@ -32,7 +32,7 @@ router.post('/signin', async (req, res) => {
 router.post('/refresh', async (req, res) => {
   try {
     const token = req.body.refresh_token;
-    const accessToken = rotateAccessToken(token);
+    const accessToken = await rotateAccessToken(token);
     return res.json({ access_token: accessToken });
   } catch {
     return res.status(401).json({ error: 'Invalid refresh token' });
@@ -56,6 +56,7 @@ router.post('/reset-password-request', async (_req, res) => {
 
 router.post('/update-password', requireAuth, async (req, res) => {
   const { password } = req.body;
+  validatePassword(password);
   const hash = await bcrypt.hash(password, 10);
   await withConnection(async (conn) => {
     await conn.execute('UPDATE users SET password_hash = :h WHERE id = HEXTORAW(:id)', {

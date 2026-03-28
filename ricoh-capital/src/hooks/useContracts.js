@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '../lib/backendClient';
+import { db, invokeApi, logAudit } from '../lib/backendClient';
 import { keys } from '../lib/queryClient';
 import { useAuth } from '../auth/AuthContext';
 
@@ -39,12 +39,11 @@ export function useContracts() {
   });
 }
 
-// Alias for the customer portal — filters by customer_id
 export function useCustomerContracts() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['customer-contracts', user?.id],
+    queryKey: keys.customerContracts(user?.id),
     queryFn: async () => {
       const { data, error } = await db.contracts()
         .select('*')
@@ -72,21 +71,6 @@ export function useContract(contractId) {
   });
 }
 
-export function useContractByRef(refNumber) {
-  return useQuery({
-    queryKey: ['contract-ref', refNumber],
-    queryFn: async () => {
-      const { data, error } = await db.contracts()
-        .select('*')
-        .eq('reference_number', refNumber)
-        .single();
-      if (error) throw error;
-      return attachDealMetadata(data);
-    },
-    enabled: !!refNumber,
-  });
-}
-
 export function usePaymentSchedule(contractId) {
   return useQuery({
     queryKey: keys.paymentSchedule(contractId),
@@ -102,7 +86,35 @@ export function usePaymentSchedule(contractId) {
   });
 }
 
-// Admin: mark a single payment as paid
+export function useContractSignatures(contractId) {
+  return useQuery({
+    queryKey: ['contract-signatures', contractId],
+    queryFn: async () => {
+      const { data, error } = await db.contractSignatures()
+        .select('*')
+        .eq('contract_id', contractId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!contractId,
+  });
+}
+
+export function useContractClosureRequests(contractId) {
+  return useQuery({
+    queryKey: ['contract-closure-requests', contractId],
+    queryFn: async () => {
+      const { data, error } = await db.contractClosureRequests()
+        .select('*')
+        .eq('contract_id', contractId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!contractId,
+  });
+}
+
 export function useMarkPaymentPaid() {
   const qc = useQueryClient();
   return useMutation({
@@ -119,12 +131,10 @@ export function useMarkPaymentPaid() {
   });
 }
 
-// Customer: pay an instalment (with optional principal overpayment)
 export function useCustomerPayNow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ paymentId, contractId, amountPaid, extraPrincipal }) => {
-      // 1. Mark this instalment as paid
       const { error: pErr } = await db.paymentSchedule()
         .update({
           status: 'paid',
@@ -135,7 +145,6 @@ export function useCustomerPayNow() {
         .eq('id', paymentId);
       if (pErr) throw pErr;
 
-      // 2. If extra principal was paid, redistribute it across remaining unpaid rows
       if (extraPrincipal > 0) {
         const { data: remaining, error: rErr } = await db.paymentSchedule()
           .select('id, amount')
@@ -144,60 +153,101 @@ export function useCustomerPayNow() {
         if (rErr) throw rErr;
 
         if (remaining && remaining.length > 0) {
-          const currentTotal = remaining.reduce((s, p) => s + (p.amount || 0), 0);
-          const newTotal = Math.max(0, currentTotal - extraPrincipal);
-          const newAmount = Math.round((newTotal / remaining.length) * 100) / 100;
+          const currentTotalCents = remaining.reduce((sum, payment) => sum + Math.round(Number(payment.amount || 0) * 100), 0);
+          const newTotalCents = Math.max(0, currentTotalCents - Math.round(Number(extraPrincipal) * 100));
+          const baseAmount = Math.floor(newTotalCents / remaining.length);
+          const remainder = newTotalCents % remaining.length;
 
-          const { error: uErr } = await db.paymentSchedule()
-            .update({ amount: newAmount })
-            .in('id', remaining.map(p => p.id));
-          if (uErr) throw uErr;
+          await Promise.all(remaining.map((payment, index) =>
+            db.paymentSchedule()
+              .update({ amount: (baseAmount + (index < remainder ? 1 : 0)) / 100 })
+              .eq('id', payment.id),
+          ));
         }
       }
     },
     onSuccess: (_, { contractId }) => {
       qc.invalidateQueries({ queryKey: keys.paymentSchedule(contractId) });
       qc.invalidateQueries({ queryKey: keys.contract(contractId) });
-      qc.invalidateQueries({ queryKey: ['customer-contracts'] });
+      qc.invalidateQueries({ queryKey: ['customer', 'contracts'] });
     },
   });
 }
 
-// Admin: cancel a contract
+export function useSignContract() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ contractId, signerName, signaturePayload }) =>
+      invokeApi(`/contracts/${contractId}/sign`, { signerName, signaturePayload }),
+    onSuccess: (_, { contractId }) => {
+      qc.invalidateQueries({ queryKey: keys.contract(contractId) });
+      qc.invalidateQueries({ queryKey: ['contract-signatures', contractId] });
+      qc.invalidateQueries({ queryKey: ['customer', 'contracts'] });
+      qc.invalidateQueries({ queryKey: ['contracts'] });
+    },
+  });
+}
+
+export function useCreateClosureRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ contractId, requestedDate, effectiveEndDate, reason, settlementAmount, notes }) =>
+      invokeApi(`/contracts/${contractId}/closure-requests`, { requestedDate, effectiveEndDate, reason, settlementAmount, notes }),
+    onSuccess: (_, { contractId }) => {
+      qc.invalidateQueries({ queryKey: ['contract-closure-requests', contractId] });
+      qc.invalidateQueries({ queryKey: keys.contract(contractId) });
+    },
+  });
+}
+
+export function useReviewClosureRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ requestId, contractId, status, reviewNotes, settlementAmount, effectiveEndDate }) =>
+      invokeApi(`/closure-requests/${requestId}/review`, { status, reviewNotes, settlementAmount, effectiveEndDate }),
+    onSuccess: (_, { contractId }) => {
+      qc.invalidateQueries({ queryKey: ['contract-closure-requests', contractId] });
+      qc.invalidateQueries({ queryKey: keys.contract(contractId) });
+      qc.invalidateQueries({ queryKey: ['contracts'] });
+      qc.invalidateQueries({ queryKey: ['customer', 'contracts'] });
+    },
+  });
+}
+
 export function useCancelContract() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (contractId) => {
-      const { error } = await db.contracts()
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-        .eq('id', contractId);
-      if (error) throw error;
+    mutationFn: async ({ contractId, effectiveEndDate, reason, settlementAmount, notes }) => {
+      const result = await invokeApi(`/contracts/${contractId}/terminate`, { effectiveEndDate, reason, settlementAmount, notes });
+      await logAudit('contract', contractId, 'terminated', { performed_by: user?.id, reason, settlementAmount });
+      return result;
     },
-    onSuccess: (_, contractId) => {
+    onSuccess: (_, { contractId }) => {
       qc.invalidateQueries({ queryKey: keys.contract(contractId) });
       qc.invalidateQueries({ queryKey: keys.contracts(user?.id) });
     },
   });
 }
 
-// Portfolio KPIs derived from contracts
 export function usePortfolioStats(contracts = []) {
-  const active = contracts.filter(c => c.status === 'active').length;
-  const overdue = contracts.filter(c => c.status === 'overdue').length;
-  const maturing = contracts.filter(c => c.status === 'maturing').length;
+  const active = contracts.filter((c) => c.status === 'active').length;
+  const overdue = contracts.filter((c) => c.status === 'overdue').length;
+  const maturing = contracts.filter((c) => c.status === 'maturing').length;
   const totalValue = contracts.reduce((s, c) => s + (c.asset_value || 0), 0);
   return { active, overdue, maturing, totalValue };
 }
 
-// Export contracts as CSV
+function sanitizeCsvCell(value) {
+  const raw = String(value ?? '');
+  const prefixed = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  return prefixed.includes(',') ? `"${prefixed.replace(/"/g, '""')}"` : prefixed;
+}
+
 export function exportContractsCSV(contracts, fields) {
   const headers = fields.join(',');
-  const rows = contracts.map(c =>
-    fields.map(f => {
-      const val = c[f] ?? '';
-      return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
-    }).join(',')
+  const rows = contracts.map((contract) =>
+    fields.map((field) => sanitizeCsvCell(contract[field] ?? '')).join(','),
   );
   const csv = [headers, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });

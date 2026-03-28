@@ -8,6 +8,7 @@ import { dealInitiationSchema } from '../../schemas';
 import { FormField } from '../../components/shared/FormField';
 import { useAuth } from '../../auth/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
+import { PRODUCT_OPTIONS, getProductFamily } from '../../lib/dealConfig';
 
 function makeRef() {
   const year = new Date().getFullYear();
@@ -15,24 +16,13 @@ function makeRef() {
   return `REF-${year}-${number}`;
 }
 
-const PRODUCT_TYPES = [
-  'Asset Finance - Hire Purchase',
-  'Asset Finance - Finance Lease',
-  'Asset Finance - Operating Lease',
-  'Vehicle Finance - Hire Purchase',
-  'Vehicle Finance - PCP',
-  'Equipment Leasing',
-  'Working Capital Loan',
-  'Invoice Finance',
-];
-
 export default function P06DealInitiation() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { primaryCurrency, supportedLocales, t } = useLocale();
   const { initiation, setInitiation } = useDealStore();
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(dealInitiationSchema),
     defaultValues: {
       ...initiation,
@@ -41,6 +31,8 @@ export default function P06DealInitiation() {
     },
   });
 
+  const productType = watch('productType');
+
   useEffect(() => {
     if (!initiation.currencyCode) {
       setValue('currencyCode', primaryCurrency, { shouldDirty: false });
@@ -48,9 +40,10 @@ export default function P06DealInitiation() {
   }, [initiation.currencyCode, primaryCurrency, setValue]);
 
   const currencyOptions = [...new Set(supportedLocales.map((entry) => entry.currency))];
+  const selectedFamily = getProductFamily(productType);
 
   const onSubmit = (data) => {
-    setInitiation(data);
+    setInitiation({ ...data, productFamily: getProductFamily(data.productType) });
     navigate('/deals/assets');
   };
 
@@ -65,7 +58,7 @@ export default function P06DealInitiation() {
       </div>
 
       <div className="steps-row" style={{ marginBottom: 24 }}>
-        {['Initiation', 'Asset details', 'Review & submit'].map((step, index) => (
+        {['Initiation', 'Deal details', 'Review & submit'].map((step, index) => (
           <div key={step} className={`step ${index === 0 ? 'active' : ''}`}>
             <div className="step-dot">{index + 1}</div>
             <div className="step-label">{step}</div>
@@ -89,14 +82,14 @@ export default function P06DealInitiation() {
             <FormField label="Client / company name" required error={errors.customerName?.message} hint="The company or individual being financed">
               <input {...register('customerName')} className="form-input" placeholder="TechWorks Solutions Ltd" autoFocus />
             </FormField>
-            <FormField label="Client email" error={errors.customerEmail?.message} hint="Used to invite the client to the customer portal after approval">
+            <FormField label="Client email" error={errors.customerEmail?.message} hint="Used to create the customer login after approval">
               <input {...register('customerEmail')} className="form-input" type="email" placeholder="contact@techworks.co.uk" />
             </FormField>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: '0 16px' }}>
-            <FormField label="Product type" required error={errors.productType?.message}>
+            <FormField label="Product type" required error={errors.productType?.message} hint={`Family: ${selectedFamily.replace('_', ' ')}`}>
               <select {...register('productType')} className="form-input">
-                {PRODUCT_TYPES.map((type) => <option key={type}>{type}</option>)}
+                {PRODUCT_OPTIONS.map((type) => <option key={type.label} value={type.label}>{type.label}</option>)}
               </select>
             </FormField>
             <FormField label={t('deals.dealCurrency')} required error={errors.currencyCode?.message}>
@@ -134,7 +127,7 @@ export default function P06DealInitiation() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="submit" className="btn btn-primary">Continue - Asset details</button>
+          <button type="submit" className="btn btn-primary">Continue - Deal details</button>
         </div>
       </form>
     </div>

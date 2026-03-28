@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../auth/AuthContext';
@@ -10,7 +10,7 @@ import { RicohWordmark } from '../../components/shared/RicohLogo';
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, isAdmin, isOriginator, isCustomer, isApproved, needsOnboarding, profile } = useAuth();
+  const { signIn } = useAuth();
   const [serverError, setServerError] = useState('');
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
@@ -22,10 +22,7 @@ export default function LoginPage() {
     setServerError('');
     try {
       await signIn(email, password);
-      const from = location.state?.from?.pathname;
-
-      // Redirect is handled in useEffect via AuthContext — but we also navigate eagerly
-      // The ProtectedRoute / PublicRoute handles the redirect after profile loads
+      navigate(location.state?.from?.pathname || '/portfolio', { replace: true });
     } catch (err) {
       setServerError(err.message || 'Invalid email or password');
     }
@@ -44,7 +41,7 @@ export default function LoginPage() {
 
           {serverError && (
             <div className="info-banner red" style={{ marginBottom: 16 }}>
-              <span>✕</span>
+              <span>x</span>
               <div style={{ fontSize: 12, color: 'var(--red)' }}>{serverError}</div>
             </div>
           )}
@@ -81,7 +78,7 @@ export default function LoginPage() {
               style={{ width: '100%', justifyContent: 'center', height: 40 }}
               disabled={isSubmitting}
             >
-              {isSubmitting ? <LoadingSpinner /> : 'Sign in →'}
+              {isSubmitting ? <LoadingSpinner /> : 'Sign in ->'}
             </button>
           </form>
 
@@ -90,23 +87,6 @@ export default function LoginPage() {
             <Link to="/signup" className="auth-link">Create an account</Link>
           </div>
         </div>
-
-        {/* Demo credentials helper */}
-        <div style={{ marginTop: 20, background: 'var(--surface)', border: '1px solid var(--bdr)', borderRadius: 'var(--rl)', padding: '14px 18px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--tx4)', letterSpacing: '.6px', marginBottom: 10 }}>Demo accounts</div>
-          {[
-            { role: 'Originator', email: 'james@acmefinance.co.uk',  password: 'Test123!' },
-            { role: 'Admin',      email: 'admin@ricohcapital.com',   password: 'Admin123!' },
-            { role: 'Customer',   email: 'contact@techworks.co.uk',  password: 'Test123!' },
-          ].map(d => (
-            <div key={d.role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 11 }}>
-              <span className={`tag ${d.role === 'Originator' ? 'coral' : d.role === 'Admin' ? 'blue' : 'green'}`}>{d.role}</span>
-              <span style={{ fontFamily: "'DM Mono', monospace", color: 'var(--tx2)', fontSize: 10 }}>{d.email}</span>
-              <span style={{ color: 'var(--tx4)', fontSize: 10 }}>/ {d.password}</span>
-            </div>
-          ))}
-        </div>
-
       </div>
     </div>
   );

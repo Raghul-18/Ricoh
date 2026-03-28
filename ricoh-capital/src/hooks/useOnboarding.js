@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { db, realtimeClient, uploadDocument, logAudit } from '../lib/backendClient';
 import { keys } from '../lib/queryClient';
 import { useAuth } from '../auth/AuthContext';
@@ -167,26 +168,28 @@ export function useDocuments(applicationId) {
 // ── Verification checks with realtime ────────────────────────────
 export function useVerificationChecks(applicationId) {
   const qc = useQueryClient();
-
   useQuery({
-    queryKey: ['checks-subscription', applicationId],
-    queryFn: async () => {
-      const channel = realtimeClient
-        .channel(`checks-${applicationId}`)
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'verification_checks',
-          filter: `application_id=eq.${applicationId}`,
-        }, () => {
-          qc.invalidateQueries({ queryKey: keys.checks(applicationId) });
-        })
-        .subscribe();
-      return () => realtimeClient.removeChannel(channel);
-    },
+    queryKey: ['checks-subscription-state', applicationId],
+    queryFn: async () => true,
     enabled: !!applicationId,
     staleTime: Infinity,
   });
+
+  useEffect(() => {
+    if (!applicationId) return undefined;
+    const channel = realtimeClient
+      .channel(`checks-${applicationId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'verification_checks',
+        filter: `application_id=eq.${applicationId}`,
+      }, () => {
+        qc.invalidateQueries({ queryKey: keys.checks(applicationId) });
+      })
+      .subscribe();
+    return () => realtimeClient.removeChannel(channel);
+  }, [applicationId, qc]);
 
   return useQuery({
     queryKey: keys.checks(applicationId),

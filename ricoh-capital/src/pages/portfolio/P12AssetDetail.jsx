@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, CreditCard, TrendingDown } from 'lucide-react';
-import { useContract, usePaymentSchedule, useMarkPaymentPaid, useCancelContract, useCustomerPayNow } from '../../hooks/useContracts';
+import { CheckCircle, CreditCard, PenSquare, TrendingDown, XCircle } from 'lucide-react';
+import {
+  useCancelContract,
+  useContract,
+  useContractClosureRequests,
+  useContractSignatures,
+  useCreateClosureRequest,
+  useCustomerPayNow,
+  useMarkPaymentPaid,
+  usePaymentSchedule,
+  useReviewClosureRequest,
+  useSignContract,
+} from '../../hooks/useContracts';
 import { useAuth } from '../../auth/AuthContext';
 import { useAppContext } from '../../context/AppContext';
 import { LoadingSpinner } from '../../components/shared/FormField';
@@ -20,6 +31,7 @@ const PAYMENT_META = {
   due_soon: { labelKey: 'portfolio.paymentDueSoon', color: 'var(--amber)' },
   paid: { labelKey: 'portfolio.paymentPaid', color: 'var(--green)' },
   overdue: { labelKey: 'portfolio.paymentOverdue', color: 'var(--red)' },
+  cancelled: { labelKey: 'portfolio.statusCancelled', color: 'var(--tx4)' },
 };
 
 function DetailRow({ label, value }) {
@@ -27,6 +39,167 @@ function DetailRow({ label, value }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: 6, borderBottom: '1px solid var(--bdr)', marginBottom: 6 }}>
       <span style={{ color: 'var(--tx3)' }}>{label}</span>
       <span style={{ fontWeight: 500, textAlign: 'right' }}>{value}</span>
+    </div>
+  );
+}
+
+function SignatureCard({ contractId, signatures, canSign, signerLabel }) {
+  const [signerName, setSignerName] = useState('');
+  const [signaturePayload, setSignaturePayload] = useState('');
+  const signContract = useSignContract();
+  const { showToast } = useAppContext();
+
+  const handleSign = async () => {
+    try {
+      await signContract.mutateAsync({ contractId, signerName, signaturePayload });
+      showToast('Contract signed successfully', 'success');
+      setSignaturePayload('');
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Contract signatures</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        {['customer', 'admin'].map((role) => {
+          const signature = signatures.find((item) => item.signer_role === role);
+          return (
+            <div key={role} style={{ border: '1px solid var(--bdr)', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{role === 'customer' ? 'Customer' : 'Admin'}</div>
+              <div style={{ fontSize: 11, color: signature ? 'var(--green)' : 'var(--tx4)' }}>
+                {signature ? `Signed by ${signature.signer_name}` : 'Pending'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {canSign && (
+        <>
+          <DetailRow label="Signer role" value={signerLabel} />
+          <div className="two-col-equal" style={{ gap: '0 12px' }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--tx3)', marginBottom: 4 }}>Signer name</div>
+              <input className="form-input" value={signerName} onChange={(event) => setSignerName(event.target.value)} placeholder="Full legal name" />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--tx3)', marginBottom: 4 }}>Signature</div>
+              <input className="form-input" value={signaturePayload} onChange={(event) => setSignaturePayload(event.target.value)} placeholder="Type your signature" />
+            </div>
+          </div>
+          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={handleSign} disabled={signContract.isPending || !signerName.trim() || !signaturePayload.trim()}>
+            <PenSquare size={13} /> Sign contract
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ClosurePanel({ contract, isAdmin, isCustomer, requests }) {
+  const [form, setForm] = useState({ reason: '', settlementAmount: '', effectiveEndDate: '', notes: '' });
+  const [reviewNotes, setReviewNotes] = useState('');
+  const createRequest = useCreateClosureRequest();
+  const reviewRequest = useReviewClosureRequest();
+  const terminateContract = useCancelContract();
+  const { showToast } = useAppContext();
+
+  const handleRequest = async () => {
+    try {
+      await createRequest.mutateAsync({
+        contractId: contract.id,
+        reason: form.reason,
+        settlementAmount: Number(form.settlementAmount || 0),
+        effectiveEndDate: form.effectiveEndDate,
+        notes: form.notes,
+      });
+      showToast('Closure request submitted', 'success');
+      setForm({ reason: '', settlementAmount: '', effectiveEndDate: '', notes: '' });
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  };
+
+  const handleTerminate = async () => {
+    try {
+      await terminateContract.mutateAsync({
+        contractId: contract.id,
+        effectiveEndDate: form.effectiveEndDate,
+        reason: form.reason,
+        settlementAmount: Number(form.settlementAmount || 0),
+        notes: form.notes,
+      });
+      showToast('Contract terminated', 'success');
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Contract closure</div>
+      {(isCustomer || isAdmin) && (
+        <>
+          <div className="two-col-equal" style={{ gap: '0 12px' }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--tx3)', marginBottom: 4 }}>Reason</div>
+              <input className="form-input" value={form.reason} onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--tx3)', marginBottom: 4 }}>Settlement amount</div>
+              <input className="form-input" type="number" value={form.settlementAmount} onChange={(event) => setForm((current) => ({ ...current, settlementAmount: event.target.value }))} />
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11, color: 'var(--tx3)', marginBottom: 4 }}>Effective end date</div>
+            <input className="form-input" type="date" value={form.effectiveEndDate} onChange={(event) => setForm((current) => ({ ...current, effectiveEndDate: event.target.value }))} />
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11, color: 'var(--tx3)', marginBottom: 4 }}>Notes</div>
+            <textarea className="form-input" rows={3} value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            {isCustomer && (
+              <button className="btn btn-primary" onClick={handleRequest} disabled={createRequest.isPending || !form.reason.trim()}>
+                Request closure
+              </button>
+            )}
+            {isAdmin && (
+              <button className="btn btn-ghost" style={{ color: 'var(--red)', border: '1px solid var(--red-m)' }} onClick={handleTerminate} disabled={terminateContract.isPending || !form.reason.trim()}>
+                <XCircle size={13} /> Terminate contract
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {requests.length > 0 && (
+        <div style={{ marginTop: 16, borderTop: '1px solid var(--bdr)', paddingTop: 12 }}>
+          {requests.map((request) => (
+            <div key={request.id} style={{ border: '1px solid var(--bdr)', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <strong>{request.reason || 'Closure request'}</strong>
+                <span>{request.status}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--tx3)', marginBottom: 8 }}>{request.notes}</div>
+              {isAdmin && request.status === 'pending' && (
+                <>
+                  <textarea className="form-input" rows={2} value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} placeholder="Admin review notes" />
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                    <button className="btn btn-primary" onClick={() => reviewRequest.mutateAsync({ requestId: request.id, contractId: contract.id, status: 'approved', reviewNotes })}>
+                      Approve request
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => reviewRequest.mutateAsync({ requestId: request.id, contractId: contract.id, status: 'declined', reviewNotes })}>
+                      Decline
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -39,9 +212,9 @@ export default function P12AssetDetail() {
   const { formatCurrency, formatDate, t } = useLocale();
   const { data: contract, isLoading: contractLoading } = useContract(id);
   const { data: schedule = [], isLoading: scheduleLoading } = usePaymentSchedule(id);
+  const { data: signatures = [] } = useContractSignatures(id);
+  const { data: closureRequests = [] } = useContractClosureRequests(id);
   const markPaid = useMarkPaymentPaid();
-  const cancelContract = useCancelContract();
-  const [cancelConfirm, setCancelConfirm] = useState(false);
   const [payingPayment, setPayingPayment] = useState(null);
 
   if (contractLoading) return <div className="page-loading"><LoadingSpinner size={24} /></div>;
@@ -66,16 +239,6 @@ export default function P12AssetDetail() {
     }
   };
 
-  const handleCancel = async () => {
-    try {
-      await cancelContract.mutateAsync(id);
-      showToast(t('portfolio.contractCancelled'), 'success');
-      setCancelConfirm(false);
-    } catch (error) {
-      showToast(error.message || t('portfolio.contractCancelFailed'), 'error');
-    }
-  };
-
   return (
     <div className="page">
       <div className="page-header">
@@ -93,26 +256,6 @@ export default function P12AssetDetail() {
             </div>
           </div>
         </div>
-
-        {isAdmin && contract.status !== 'cancelled' && contract.status !== 'completed' && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {cancelConfirm ? (
-              <>
-                <span style={{ fontSize: 12, color: 'var(--red)' }}>{t('portfolio.confirmCancel')}</span>
-                <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)', border: '1px solid var(--red-m)' }} onClick={handleCancel} disabled={cancelContract.isPending}>
-                  <XCircle size={12} /> {t('portfolio.yesCancel')}
-                </button>
-                <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setCancelConfirm(false)}>
-                  {t('portfolio.keep')}
-                </button>
-              </>
-            ) : (
-              <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)', border: '1px solid var(--red-m)' }} onClick={() => setCancelConfirm(true)}>
-                <XCircle size={12} /> {t('portfolio.cancelContract')}
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       <div className="kpi-row">
@@ -138,12 +281,22 @@ export default function P12AssetDetail() {
               [t('common.asset'), contract.asset_description],
               [t('common.assetValue'), formatCurrency(contract.asset_value || 0, originalCurrency)],
               [t('common.term'), t('deals.months', { count: contract.term_months })],
+              ['Lifecycle', contract.lifecycle_status || 'pending_signatures'],
               [t('portfolio.startDate'), contract.start_date ? formatDate(contract.start_date, { day: 'numeric', month: 'short', year: 'numeric' }) : t('common.none')],
               [t('portfolio.endDate'), contract.end_date ? formatDate(contract.end_date, { day: 'numeric', month: 'short', year: 'numeric' }) : t('common.none')],
               [t('portfolio.nextPayment'), contract.next_payment_date ? formatDate(contract.next_payment_date, { day: 'numeric', month: 'short', year: 'numeric' }) : t('common.none')],
               [t('portfolio.paymentsMade'), `${paidPayments} / ${schedule.length}`],
             ].map(([label, value]) => <DetailRow key={label} label={label} value={value} />)}
           </div>
+
+          <SignatureCard
+            contractId={id}
+            signatures={signatures}
+            canSign={isAdmin || isCustomer}
+            signerLabel={isAdmin ? 'Admin' : isCustomer ? 'Customer' : 'Viewer'}
+          />
+
+          <ClosurePanel contract={contract} isAdmin={isAdmin} isCustomer={isCustomer} requests={closureRequests} />
 
           <div className="card">
             <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 12 }}>{t('portfolio.agreementProgress')}</div>
@@ -184,7 +337,7 @@ export default function P12AssetDetail() {
                   {schedule.map((payment) => {
                     const paymentMeta = PAYMENT_META[payment.status] || PAYMENT_META.upcoming;
                     const canMarkPaid = isAdmin && payment.status !== 'paid';
-                    const canPayNow = isCustomer && payment.status !== 'paid';
+                    const canPayNow = isCustomer && payment.status !== 'paid' && payment.status !== 'cancelled';
 
                     return (
                       <tr key={payment.id}>
@@ -198,9 +351,7 @@ export default function P12AssetDetail() {
                             </div>
                           )}
                         </td>
-                        <td>
-                          <span style={{ fontSize: 11, color: paymentMeta.color, fontWeight: 500 }}>{t(paymentMeta.labelKey)}</span>
-                        </td>
+                        <td><span style={{ fontSize: 11, color: paymentMeta.color, fontWeight: 500 }}>{t(paymentMeta.labelKey)}</span></td>
                         <td style={{ fontSize: 11, color: 'var(--tx4)' }}>
                           {payment.paid_at ? formatDate(payment.paid_at, { day: 'numeric', month: 'short' }) : t('common.none')}
                         </td>
@@ -361,11 +512,6 @@ function PayNowModal({ payment, contractId, schedule, currencyCode, onClose }) {
                     <span>{t('portfolio.newMonthly')}</span>
                     <span>{formatCurrency(newMonthly, currencyCode)}</span>
                   </div>
-                  {extra >= currentRemainingTotal && (
-                    <div style={{ marginTop: 6, fontSize: 11, color: 'var(--amber)', fontWeight: 600 }}>
-                      {t('portfolio.extraClearsBalance')}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

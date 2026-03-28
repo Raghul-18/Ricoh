@@ -1,5 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+  calcMonthlyPayment,
+  calcTotalPayable,
+  createDefaultDealPayload,
+  getProductFamily,
+} from '../lib/dealConfig';
 
 function makeRef() {
   const year = new Date().getFullYear();
@@ -8,10 +14,12 @@ function makeRef() {
 }
 
 function defaultInitiation() {
+  const productType = 'Asset Finance - Hire Purchase';
   return {
     customerName: '',
     customerEmail: '',
-    productType: 'Asset Finance - Hire Purchase',
+    productType,
+    productFamily: getProductFamily(productType),
     originatorReference: makeRef(),
     currencyCode: 'GBP',
     preferredStartDate: '',
@@ -19,34 +27,37 @@ function defaultInitiation() {
   };
 }
 
-function defaultAssetDetails() {
-  return {
-    assetType: 'Commercial vehicle',
-    make: '',
-    model: '',
-    year: new Date().getFullYear(),
-    assetValue: 0,
-    termMonths: 36,
-    deposit: 0,
-    balloon: 0,
-    rateType: 'Fixed',
-  };
+function defaultDealDetails(productFamily = defaultInitiation().productFamily) {
+  return createDefaultDealPayload(productFamily);
 }
 
 export const useDealStore = create(
   persist(
     (set, get) => ({
       initiation: defaultInitiation(),
-      assetDetails: defaultAssetDetails(),
+      dealDetails: defaultDealDetails(),
+      assetDetails: defaultDealDetails(),
       submittedDealId: null,
       submittedRefNumber: null,
 
       setInitiation: (data) => set((state) => ({
-        initiation: { ...state.initiation, ...data },
+        initiation: { ...state.initiation, ...data, productFamily: getProductFamily(data.productType || state.initiation.productType) },
+        dealDetails: data.productType && getProductFamily(data.productType) !== state.initiation.productFamily
+          ? defaultDealDetails(getProductFamily(data.productType))
+          : state.dealDetails,
+        assetDetails: data.productType && getProductFamily(data.productType) !== state.initiation.productFamily
+          ? defaultDealDetails(getProductFamily(data.productType))
+          : state.dealDetails,
+      })),
+
+      setDealDetails: (data) => set((state) => ({
+        dealDetails: { ...state.dealDetails, ...data },
+        assetDetails: { ...state.dealDetails, ...data },
       })),
 
       setAssetDetails: (data) => set((state) => ({
-        assetDetails: { ...state.assetDetails, ...data },
+        dealDetails: { ...state.dealDetails, ...data },
+        assetDetails: { ...state.dealDetails, ...data },
       })),
 
       setSubmitted: (dealId, refNumber) => set({
@@ -55,25 +66,26 @@ export const useDealStore = create(
       }),
 
       getMonthlyPayment: () => {
-        const { assetValue, deposit, balloon, termMonths } = get().assetDetails;
-        const financed = assetValue - deposit - balloon;
-        if (financed <= 0 || termMonths <= 0) return 0;
-        const monthlyRate = 0.072 / 12;
-        return Math.round((financed * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -termMonths)));
+        const { dealDetails, initiation } = get();
+        return calcMonthlyPayment(dealDetails, initiation.productFamily);
       },
 
-      getTotalPayable: () => get().getMonthlyPayment() * get().assetDetails.termMonths,
+      getTotalPayable: () => {
+        const { dealDetails, initiation } = get();
+        return calcTotalPayable(dealDetails, initiation.productFamily);
+      },
 
       reset: () => set({
         initiation: defaultInitiation(),
-        assetDetails: defaultAssetDetails(),
+        dealDetails: defaultDealDetails(),
+        assetDetails: defaultDealDetails(),
         submittedDealId: null,
         submittedRefNumber: null,
       }),
     }),
     {
       name: 'ricoh-deal',
-      partialize: (state) => ({ initiation: state.initiation, assetDetails: state.assetDetails }),
+      partialize: (state) => ({ initiation: state.initiation, dealDetails: state.dealDetails, assetDetails: state.dealDetails }),
     },
   ),
 );

@@ -37,6 +37,7 @@ import P06DealInitiation from './pages/deals/P06DealInitiation';
 import P07AssetDetails from './pages/deals/P07AssetDetails';
 import P08ReviewSubmit from './pages/deals/P08ReviewSubmit';
 import P09Confirmation from './pages/deals/P09Confirmation';
+import DealApprovalResultPage from './pages/deals/DealApprovalResultPage';
 
 // CRM
 import P18ProspectList from './pages/crm/P18ProspectList';
@@ -79,7 +80,7 @@ export default function App() {
               <Route path="/signup" element={
                 <PublicRoute><SignupPage /></PublicRoute>
               } />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
 
               {/* ── Authenticated shell ── */}
               <Route element={
@@ -123,6 +124,11 @@ export default function App() {
                 <Route path="/admin/deals" element={
                   <ProtectedRoute roles={['admin']}>
                     <AdminDealQueue />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/deals/:id/approved" element={
+                  <ProtectedRoute roles={['admin']}>
+                    <DealApprovalResultPage />
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/audit" element={

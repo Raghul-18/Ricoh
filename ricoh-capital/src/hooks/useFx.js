@@ -11,6 +11,7 @@ export function useFxRate(baseCurrency, targetCurrency) {
 }
 
 export function convertWithRate(amount, rate) {
+  if (amount === '' || rate === '') return null;
   if (!Number.isFinite(Number(amount))) return null;
   if (!Number.isFinite(Number(rate))) return null;
   return Math.round(Number(amount || 0) * Number(rate) * 100) / 100;

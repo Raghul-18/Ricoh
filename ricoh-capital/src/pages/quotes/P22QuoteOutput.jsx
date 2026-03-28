@@ -67,18 +67,19 @@ function QuoteCard({ quote, onSend, onAccept, onDecline }) {
                 <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>
                   {t('deals.months', { count: scenario.termMonths })} - {scenario.aprPct}% APR - {scenario.rateType} {t('deals.rateType').toLowerCase()}
                   {scenario.deposit > 0 && ` - ${formatCurrency(scenario.deposit, primaryCurrency)} ${t('quotes.depositSuffix')}`}
+                  {scenario.balloon > 0 && ` - ${formatCurrency(scenario.balloon, primaryCurrency)} balloon`}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 28, fontWeight: 800, color: index === 0 ? 'var(--coral)' : 'var(--tx1)' }}>
-                  {formatCurrency(scenario.monthlyPayment || calcMonthly(quote.asset_value, scenario.deposit, scenario.termMonths, scenario.aprPct), primaryCurrency)}
+                  {formatCurrency(scenario.monthlyPayment || calcMonthly(quote.asset_value, scenario.deposit, scenario.termMonths, scenario.aprPct, scenario.balloon), primaryCurrency)}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--tx3)' }}>{t('quotes.perMonth')}</div>
               </div>
             </div>
             <div style={{ borderTop: '1px solid var(--bdr)', marginTop: 12, paddingTop: 10, display: 'flex', gap: 24, fontSize: 12, color: 'var(--tx3)' }}>
               <div>{t('deals.totalPayable')}: <strong style={{ color: 'var(--tx1)' }}>{formatCurrency(scenario.totalPayable || 0, primaryCurrency)}</strong></div>
-              <div>{t('quotes.amountFinanced')}: <strong style={{ color: 'var(--tx1)' }}>{formatCurrency((quote.asset_value || 0) - (scenario.deposit || 0), primaryCurrency)}</strong></div>
+              <div>{t('quotes.amountFinanced')}: <strong style={{ color: 'var(--tx1)' }}>{formatCurrency((quote.asset_value || 0) - (scenario.deposit || 0) - (scenario.balloon || 0), primaryCurrency)}</strong></div>
             </div>
           </div>
         ))}
@@ -170,7 +171,7 @@ export default function P22QuoteOutput() {
         assetValue: selectedQuote.asset_value || 0,
         termMonths: bestScenario.termMonths || 36,
         deposit: bestScenario.deposit || 0,
-        balloon: 0,
+        balloon: bestScenario.balloon || 0,
         rateType: bestScenario.rateType || 'Fixed',
       });
 

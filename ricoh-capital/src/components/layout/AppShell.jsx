@@ -23,7 +23,13 @@ export default function AppShell() {
     }
   });
   const [navOpen, setNavOpen] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    try {
+      return localStorage.getItem('password-setup-banner-dismissed') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   const needsPasswordSetup = !bannerDismissed && user?.user_metadata?.needs_password_setup === true;
 
@@ -34,6 +40,10 @@ export default function AppShell() {
   useEffect(() => {
     setNavOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    localStorage.setItem('password-setup-banner-dismissed', String(bannerDismissed));
+  }, [bannerDismissed]);
 
   const handleNavToggle = useCallback(() => {
     if (window.innerWidth <= 1024) {

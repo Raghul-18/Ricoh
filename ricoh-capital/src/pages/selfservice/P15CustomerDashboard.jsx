@@ -8,6 +8,8 @@ import { useLocale } from '../../context/LocaleContext';
 import { convertWithRate, useFxRate } from '../../hooks/useFx';
 
 const STATUS_META = {
+  pending_signatures: { labelKey: 'common.inReview', color: 'var(--amber)', bg: 'var(--amber-l)' },
+  partially_signed: { labelKey: 'common.inReview', color: 'var(--amber)', bg: 'var(--amber-l)' },
   active: { labelKey: 'portfolio.statusActive', color: 'var(--green)', bg: 'var(--green-l)' },
   overdue: { labelKey: 'portfolio.statusOverdue', color: 'var(--red)', bg: 'var(--red-l)' },
   maturing: { labelKey: 'portfolio.statusMaturing', color: 'var(--amber)', bg: 'var(--amber-l)' },

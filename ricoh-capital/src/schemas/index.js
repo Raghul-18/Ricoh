@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getDefaultApr, getProductFamily } from '../lib/dealConfig';
 
 const currentYear = new Date().getFullYear();
 
@@ -120,18 +121,50 @@ export const dealInitiationSchema = z.object({
 });
 
 export const assetDetailsSchema = z.object({
-  assetType: z.enum(assetTypes, { message: 'Asset type is required' }),
-  make: trimmedRequired('Make').max(120, 'Make is too long'),
-  model: trimmedRequired('Model').max(120, 'Model is too long'),
-  year: z.number({ invalid_type_error: 'Year is required' }).int('Year must be a whole number').min(1990).max(currentYear + 1),
-  assetValue: z.number({ invalid_type_error: 'Asset value is required' }).min(1000, 'Asset value must be at least 1,000'),
+  productType: z.enum(productTypes, { message: 'Product type is required' }),
+  assetType: z.string().trim().optional(),
+  make: z.string().trim().optional(),
+  model: z.string().trim().optional(),
+  year: z.number().int().optional(),
+  assetValue: z.number().optional(),
   termMonths: z.number({ invalid_type_error: 'Term is required' }).int('Term must be a whole number').min(6).max(120),
-  deposit: z.number({ invalid_type_error: 'Deposit must be a number' }).min(0, 'Deposit cannot be negative'),
-  balloon: z.number({ invalid_type_error: 'Balloon payment must be a number' }).min(0, 'Balloon payment cannot be negative'),
+  deposit: z.number().optional(),
+  balloon: z.number().optional(),
   rateType: z.enum(['Fixed', 'Variable']),
-}).refine((data) => data.deposit + data.balloon < data.assetValue, {
-  message: 'Deposit and balloon cannot exceed asset value',
-  path: ['deposit'],
+  apr: z.number().min(1).max(30).default(getDefaultApr('asset_finance')),
+  supplierName: z.string().trim().optional(),
+  equipmentDescription: z.string().trim().optional(),
+  facilityAmount: z.number().optional(),
+  purpose: z.string().trim().optional(),
+  repaymentFrequency: z.enum(['Monthly', 'Quarterly']).optional(),
+  averageMonthlyInvoices: z.number().optional(),
+  advanceRatePct: z.number().optional(),
+  debtorBookValue: z.number().optional(),
+}).superRefine((data, ctx) => {
+  const family = getProductFamily(data.productType);
+  if (family === 'asset_finance' || family === 'vehicle_finance') {
+    if (!assetTypes.includes(data.assetType)) ctx.addIssue({ code: 'custom', path: ['assetType'], message: 'Asset type is required' });
+    if (!data.make?.trim()) ctx.addIssue({ code: 'custom', path: ['make'], message: 'Make is required' });
+    if (!data.model?.trim()) ctx.addIssue({ code: 'custom', path: ['model'], message: 'Model is required' });
+    if (!Number.isFinite(data.year) || data.year < 1990 || data.year > currentYear + 1) ctx.addIssue({ code: 'custom', path: ['year'], message: 'Year is required' });
+    if (!Number.isFinite(data.assetValue) || data.assetValue < 1000) ctx.addIssue({ code: 'custom', path: ['assetValue'], message: 'Asset value must be at least 1,000' });
+    if ((Number(data.deposit || 0) + Number(data.balloon || 0)) >= Number(data.assetValue || 0)) {
+      ctx.addIssue({ code: 'custom', path: ['deposit'], message: 'Deposit and balloon cannot exceed asset value' });
+    }
+  }
+  if (family === 'equipment_leasing') {
+    if (!data.equipmentDescription?.trim()) ctx.addIssue({ code: 'custom', path: ['equipmentDescription'], message: 'Equipment description is required' });
+    if (!Number.isFinite(data.assetValue) || data.assetValue < 1000) ctx.addIssue({ code: 'custom', path: ['assetValue'], message: 'Equipment value must be at least 1,000' });
+  }
+  if (family === 'working_capital') {
+    if (!Number.isFinite(data.facilityAmount) || data.facilityAmount < 1000) ctx.addIssue({ code: 'custom', path: ['facilityAmount'], message: 'Facility amount must be at least 1,000' });
+    if (!data.purpose?.trim()) ctx.addIssue({ code: 'custom', path: ['purpose'], message: 'Purpose is required' });
+  }
+  if (family === 'invoice_finance') {
+    if (!Number.isFinite(data.facilityAmount) || data.facilityAmount < 1000) ctx.addIssue({ code: 'custom', path: ['facilityAmount'], message: 'Facility amount must be at least 1,000' });
+    if (!Number.isFinite(data.averageMonthlyInvoices) || data.averageMonthlyInvoices < 0) ctx.addIssue({ code: 'custom', path: ['averageMonthlyInvoices'], message: 'Average monthly invoices is required' });
+    if (!Number.isFinite(data.advanceRatePct) || data.advanceRatePct <= 0 || data.advanceRatePct > 100) ctx.addIssue({ code: 'custom', path: ['advanceRatePct'], message: 'Advance rate must be between 1 and 100' });
+  }
 });
 
 export const prospectSchema = z.object({

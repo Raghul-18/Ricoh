@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle, XCircle, Clock, ChevronDown, ChevronUp,
   Building2, Wrench, CreditCard, Search, Send, Edit,
@@ -113,6 +114,7 @@ function AmendmentCard({ amend }) {
 }
 
 function DealCard({ deal }) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [notes, setNotes] = useState(deal.admin_notes || '');
   const [startDate, setStartDate] = useState('');
@@ -154,11 +156,8 @@ function DealCard({ deal }) {
   const handleApprove = async () => {
     try {
       const result = await approve.mutateAsync({ dealId: deal.id, adminNotes: notes, startDate, customerEmail });
-      if (result?.customerEmail && !result?.customerInviteSent) {
-        showToast(`Deal approved, but invite email failed: ${result.customerInviteError || 'Unknown invite error'}`, 'warning');
-      } else {
-        showToast(result?.customerEmail ? 'Deal approved - contract created & customer invited' : 'Deal approved - contract created', 'success');
-      }
+      showToast('Deal approved - customer credentials generated', 'success');
+      navigate(`/admin/deals/${deal.id}/approved`, { state: { approvalResult: result } });
     } catch (error) {
       showToast(error.message, 'error');
     }

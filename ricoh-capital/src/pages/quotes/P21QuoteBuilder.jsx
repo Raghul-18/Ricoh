@@ -9,7 +9,7 @@ import { useLocale } from '../../context/LocaleContext';
 
 const ASSET_TYPES = ['Commercial vehicle', 'Plant & machinery', 'Medical equipment', 'Catering equipment', 'IT & technology', 'Agricultural equipment', 'Other'];
 const TERMS = [12, 24, 36, 48, 60, 72, 84];
-const defaultScenario = () => ({ termMonths: 36, deposit: 0, aprPct: 7.2, rateType: 'Fixed' });
+const defaultScenario = () => ({ termMonths: 36, deposit: 0, balloon: 0, aprPct: 7.2, rateType: 'Fixed' });
 
 export default function P21QuoteBuilder() {
   const navigate = useNavigate();
@@ -59,10 +59,11 @@ export default function P21QuoteBuilder() {
     }
 
     const scenariosData = scenarios.map((scenario) => {
-      const monthly = calcMonthly(assetValue, scenario.deposit, scenario.termMonths, scenario.aprPct);
+      const monthly = calcMonthly(assetValue, scenario.deposit, scenario.termMonths, scenario.aprPct, scenario.balloon);
       return {
         termMonths: scenario.termMonths,
         deposit: scenario.deposit,
+        balloon: scenario.balloon,
         aprPct: scenario.aprPct,
         rateType: scenario.rateType,
         monthlyPayment: monthly,
@@ -146,7 +147,7 @@ export default function P21QuoteBuilder() {
           </div>
 
           {scenarios.map((scenario, index) => {
-            const monthly = assetValue > 0 ? calcMonthly(assetValue, scenario.deposit, scenario.termMonths, scenario.aprPct) : 0;
+            const monthly = assetValue > 0 ? calcMonthly(assetValue, scenario.deposit, scenario.termMonths, scenario.aprPct, scenario.balloon) : 0;
             const total = monthly * scenario.termMonths;
             return (
               <div key={index} className="card" style={{ marginBottom: 12, border: index === 0 ? '2px solid var(--coral)' : undefined }}>
@@ -168,6 +169,12 @@ export default function P21QuoteBuilder() {
                   </FormField>
                   <FormField label={t('quotes.deposit', { currency: primaryCurrency })}>
                     <input className="form-input" type="number" min="0" step="100" value={scenario.deposit} onChange={(event) => updateScenario(index, { deposit: Number(event.target.value) })} />
+                  </FormField>
+                </div>
+
+                <div className="two-col-equal" style={{ gap: '0 12px' }}>
+                  <FormField label={`Balloon (${primaryCurrency})`}>
+                    <input className="form-input" type="number" min="0" step="100" value={scenario.balloon || 0} onChange={(event) => updateScenario(index, { balloon: Number(event.target.value) })} />
                   </FormField>
                 </div>
 
