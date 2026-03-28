@@ -20,9 +20,10 @@ const tableMap = {
   notifications: 'notifications',
   audit_logs: 'audit_logs',
   deal_amendments: 'deal_amendments',
-  contract_signatures: 'contract_signatures',
+  contract_signatures: 'signatures',
   contract_closure_requests: 'contract_closure_requests',
   customer_access_credentials: 'customer_access_credentials',
+  onboarding_tokens: 'onboarding_tokens',
 };
 
 const referencePrefixes = {
@@ -32,7 +33,13 @@ const referencePrefixes = {
 };
 
 const ADMIN_ONLY_TABLES = new Set(['audit_logs']);
-const CUSTOMER_TABLES = new Set(['contracts', 'payment_schedule', 'notifications', 'contract_signatures', 'contract_closure_requests']);
+const DIRECT_ROUTE_ONLY_TABLES = new Set([
+  'contracts',
+  'contract_signatures',
+  'contract_closure_requests',
+  'customer_access_credentials',
+  'onboarding_tokens',
+]);
 
 function isAdmin(req) {
   return req.user?.role === 'admin';
@@ -403,6 +410,9 @@ router.post('/query', requireAuth, async (req, res) => {
   const { table, action, select, values, filters = [], orderBy, single, maybeSingle } = req.body;
   const mapped = tableMap[table];
   if (!mapped) return res.status(400).json({ error: 'Unknown table' });
+  if (DIRECT_ROUTE_ONLY_TABLES.has(table) && action !== 'select') {
+    return res.status(403).json({ error: 'Use dedicated lifecycle endpoints for this action' });
+  }
 
   try {
     const result = await withConnection(async (conn) => {

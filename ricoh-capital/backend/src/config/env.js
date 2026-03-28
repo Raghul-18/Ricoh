@@ -37,6 +37,22 @@ export const env = {
     accessTtl: process.env.JWT_ACCESS_TTL || '15m',
     refreshTtl: process.env.JWT_REFRESH_TTL || '7d',
   },
+  email: {
+    provider: process.env.EMAIL_PROVIDER || 'gmail',
+    fromAddress: required('EMAIL_FROM_ADDRESS'),
+    onboardingTtlHours: Number(process.env.ONBOARDING_TOKEN_TTL_HOURS || 48),
+    gmail: {
+      user: process.env.GMAIL_SMTP_USER || '',
+      appPassword: process.env.GMAIL_APP_PASSWORD || '',
+    },
+    oci: {
+      host: process.env.OCI_EMAIL_SMTP_HOST || '',
+      port: Number(process.env.OCI_EMAIL_SMTP_PORT || 587),
+      secure: String(process.env.OCI_EMAIL_SMTP_SECURE || 'false').toLowerCase() === 'true',
+      user: process.env.OCI_EMAIL_SMTP_USER || '',
+      password: process.env.OCI_EMAIL_SMTP_PASSWORD || '',
+    },
+  },
   oci: {
     region: required('OCI_REGION'),
     tenancyId: required('OCI_TENANCY_ID'),

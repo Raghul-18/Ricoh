@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { getProfile, loginUser, registerUser, rotateAccessToken, validatePassword } from '../services/authService.js';
+import { getProfile, issueSessionTokens, loginUser, registerUser, rotateAccessToken, validatePassword } from '../services/authService.js';
 import { requireAuth } from '../middleware/auth.js';
 import { withConnection } from '../db/oracle.js';
+import { consumeOnboardingToken } from '../services/contractLifecycleService.js';
 
 const router = Router();
 
@@ -52,6 +53,33 @@ router.get('/me', requireAuth, async (req, res) => {
 router.post('/reset-password-request', async (_req, res) => {
   // Wire email provider here in production.
   return res.json({ ok: true });
+});
+
+router.post('/onboard/consume', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Onboarding token is required' });
+
+    const result = await withConnection(async (conn) => {
+      const consumed = await consumeOnboardingToken(conn, {
+        token,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') || '',
+      });
+      const tokens = issueSessionTokens(consumed.user);
+      await conn.commit();
+      return {
+        user: consumed.user,
+        session: { access_token: tokens.accessToken, refresh_token: tokens.refreshToken },
+        redirect_path: consumed.redirectPath,
+        contract_id: consumed.contractId,
+      };
+    });
+
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
 });
 
 router.post('/update-password', requireAuth, async (req, res) => {

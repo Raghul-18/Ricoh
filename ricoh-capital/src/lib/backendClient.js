@@ -1,6 +1,7 @@
 import {
   authGetMe,
   authGetSession,
+  authConsumeOnboardingToken,
   authSignIn,
   authSignOut,
   authSignUp,
@@ -106,6 +107,14 @@ export const authClient = {
     });
     return { data: result, error: null };
   },
+  async signInWithOnboardingToken(token) {
+    const result = await authConsumeOnboardingToken(token);
+    notifyAuth('SIGNED_IN', {
+      ...result.session,
+      user: result.user,
+    });
+    return { data: result, error: null };
+  },
   async signOut() {
     await authSignOut();
     notifyAuth('SIGNED_OUT', null);
@@ -205,14 +214,10 @@ export async function invokeApi(path, body = {}, method = 'POST') {
 }
 
 export async function logAudit(entityType, entityId, action, details = {}) {
-  const {
-    data: { user },
-  } = await authClient.getUser();
-  await db.auditLogs().insert({
-    entity_type: entityType,
-    entity_id: entityId,
+  await callApiEndpoint('/audit/log', {
+    entityType,
+    entityId,
     action,
-    performed_by: user?.id,
     details,
   });
 }

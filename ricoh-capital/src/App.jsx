@@ -11,6 +11,7 @@ import AppShell from './components/layout/AppShell';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import CustomerOnboardingPage from './pages/auth/CustomerOnboardingPage';
 
 // Onboarding
 import P01Registration from './pages/onboarding/P01Registration';
@@ -81,6 +82,7 @@ export default function App() {
                 <PublicRoute><SignupPage /></PublicRoute>
               } />
               <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+              <Route path="/onboard" element={<CustomerOnboardingPage />} />
 
               {/* ── Authenticated shell ── */}
               <Route element={

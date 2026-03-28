@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db, invokeApi, logAudit } from '../lib/backendClient';
+import { db, invokeApi } from '../lib/backendClient';
 import { keys } from '../lib/queryClient';
 import { useAuth } from '../auth/AuthContext';
 
@@ -20,6 +20,14 @@ async function attachDealMetadata(contracts) {
   }));
 
   return Array.isArray(contracts) ? hydrated : hydrated[0] || null;
+}
+
+function normalizeSignature(signature) {
+  return {
+    ...signature,
+    signer_role: signature.signer_role || signature.role,
+    signer_user_id: signature.signer_user_id || signature.user_id,
+  };
 }
 
 export function useContracts() {
@@ -94,7 +102,7 @@ export function useContractSignatures(contractId) {
         .select('*')
         .eq('contract_id', contractId);
       if (error) throw error;
-      return data || [];
+      return (data || []).map(normalizeSignature);
     },
     enabled: !!contractId,
   });
@@ -218,11 +226,8 @@ export function useCancelContract() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async ({ contractId, effectiveEndDate, reason, settlementAmount, notes }) => {
-      const result = await invokeApi(`/contracts/${contractId}/terminate`, { effectiveEndDate, reason, settlementAmount, notes });
-      await logAudit('contract', contractId, 'terminated', { performed_by: user?.id, reason, settlementAmount });
-      return result;
-    },
+    mutationFn: async ({ contractId, effectiveEndDate, reason, settlementAmount, notes }) =>
+      invokeApi(`/contracts/${contractId}/terminate`, { effectiveEndDate, reason, settlementAmount, notes }),
     onSuccess: (_, { contractId }) => {
       qc.invalidateQueries({ queryKey: keys.contract(contractId) });
       qc.invalidateQueries({ queryKey: keys.contracts(user?.id) });

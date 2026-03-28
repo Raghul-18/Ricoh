@@ -6,7 +6,7 @@ import { withConnection } from '../db/oracle.js';
 
 const PASSWORD_POLICY = /^(?=.*[A-Z])(?=.*[0-9]).{8,}$/;
 
-function signTokens(user) {
+export function issueSessionTokens(user) {
   const baseClaims = {
     sub: user.id,
     email: user.email,
@@ -95,11 +95,12 @@ export async function loginUser(email, password) {
     );
     const row = result.rows?.[0];
     if (!row) throw new Error('Invalid email or password');
+    if (!row.PASSWORD_HASH) throw new Error('Use your secure onboarding link or set a password first');
     const ok = await bcrypt.compare(password, row.PASSWORD_HASH);
     if (!ok) throw new Error('Invalid email or password');
 
     const user = normalizeRow(row);
-    return { user, ...signTokens(user) };
+    return { user, ...issueSessionTokens(user) };
   });
 }
 

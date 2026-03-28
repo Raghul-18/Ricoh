@@ -56,6 +56,12 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const signInWithOnboardingToken = async (token) => {
+    const { data, error } = await authClient.signInWithOnboardingToken(token);
+    if (error) throw error;
+    return data;
+  };
+
   const signUp = async ({ email, password, fullName, companyName, role = 'originator' }) => {
     const { data, error } = await authClient.signUp({
       email,
@@ -92,6 +98,7 @@ export function AuthProvider({ children }) {
       profile,
       loading,
       signIn,
+      signInWithOnboardingToken,
       signUp,
       signOut,
       refreshProfile,

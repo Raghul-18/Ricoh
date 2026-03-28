@@ -156,7 +156,7 @@ function DealCard({ deal }) {
   const handleApprove = async () => {
     try {
       const result = await approve.mutateAsync({ dealId: deal.id, adminNotes: notes, startDate, customerEmail });
-      showToast('Deal approved - customer credentials generated', 'success');
+      showToast('Deal approved and onboarding invite sent', 'success');
       navigate(`/admin/deals/${deal.id}/approved`, { state: { approvalResult: result } });
     } catch (error) {
       showToast(error.message, 'error');
@@ -333,7 +333,7 @@ function DealCard({ deal }) {
                     onChange={(event) => setCustomerEmail(event.target.value)}
                   />
                   <div style={{ fontSize: 10, color: 'var(--tx4)', marginTop: 3 }}>
-                    Sends a portal invite email on approval
+                    Sends a secure contract review link on approval
                   </div>
                 </div>
               </div>
@@ -377,7 +377,7 @@ function DealCard({ deal }) {
                 </div>
                 <button className="btn btn-primary" onClick={handleRetryInvite} disabled={isPending}>
                   {retryInvite.isPending ? <LoadingSpinner size={12} /> : <Send size={13} />}
-                  Invite customer again
+                  Resend onboarding invite
                 </button>
               </div>
             </div>

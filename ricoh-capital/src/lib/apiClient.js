@@ -223,6 +223,15 @@ export async function callAdminEndpoint(name, payload) {
   });
 }
 
+export async function authConsumeOnboardingToken(token) {
+  const body = await request(`${AUTH_BASE}/onboard/consume`, {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+  setTokens(body.session);
+  return body;
+}
+
 export async function callApiEndpoint(path, payload, method = 'POST') {
   return request(`${API_BASE}${path}`, {
     method,

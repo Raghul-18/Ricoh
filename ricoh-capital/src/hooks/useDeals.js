@@ -134,6 +134,7 @@ export function useSubmitDeal() {
         fx_source: assetFx.source,
         fx_fetched_at: assetFx.fetchedAt,
         status: 'submitted',
+        lifecycle_status: 'PENDING_APPROVAL',
       };
 
       const { data, error } = await db.deals().insert(payload).select('*').single();
@@ -208,37 +209,11 @@ export function useApproveDeal() {
 }
 
 export function useRejectDeal() {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ dealId, adminNotes }) => {
-      const { data: deal, error: dealErr } = await db.deals()
-        .select('originator_id, reference_number, originator_reference, customer_name, product_type')
-        .eq('id', dealId)
-        .single();
-      if (dealErr) throw dealErr;
-
-      const { error } = await db.deals().update({
-        status: 'rejected',
-        admin_notes: adminNotes || null,
-        reviewed_by: user.id,
-        reviewed_at: new Date().toISOString(),
-      }).eq('id', dealId);
-      if (error) throw error;
-
-      await db.notifications().insert({
-        user_id: deal.originator_id,
-        title: `Deal not approved - ${getDealReferenceLabel(deal)}`,
-        body: adminNotes
-          ? `${deal.customer_name} - ${deal.product_type}. Reason: ${adminNotes}`
-          : `${deal.customer_name} - ${deal.product_type} was not approved at this time.`,
-        type: 'deal_update',
-        related_id: dealId,
-      });
-
-      await logAudit('deal', dealId, 'rejected', { reviewed_by: user.id, notes: adminNotes });
-    },
+    mutationFn: async ({ dealId, adminNotes }) =>
+      invokeAdminFunction('reject-deal', { dealId, adminNotes }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.adminDeals() }),
   });
 }
@@ -246,10 +221,7 @@ export function useRejectDeal() {
 export function useSetDealUnderReview() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (dealId) => {
-      const { error } = await db.deals().update({ status: 'under_review' }).eq('id', dealId);
-      if (error) throw error;
-    },
+    mutationFn: async (dealId) => invokeAdminFunction('set-deal-under-review', { dealId }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.adminDeals() }),
   });
 }
@@ -266,25 +238,21 @@ export function useRetryCustomerInvite() {
       const { data: deal, error: dealErr } = await db.deals().select('id, customer_name').eq('id', dealId).single();
       if (dealErr || !deal) throw dealErr || new Error('Deal not found');
 
-      const { data: contract, error: contractErr } = await db.contracts().select('id').eq('deal_id', dealId).single();
-      if (contractErr || !contract) throw contractErr || new Error('Contract not found for this deal');
-
       const { error: emailUpdateErr } = await db.deals().update({ customer_email: customerEmail }).eq('id', dealId);
       if (emailUpdateErr) throw emailUpdateErr;
 
-      await invokeAdminFunction('invite-customer', {
-        email: customerEmail,
-        customerName: deal.customer_name,
-        contractId: contract.id,
+      const result = await invokeAdminFunction('send-invite', {
         dealId,
+        customerEmail,
       });
 
-      await logAudit('deal', dealId, 'customer_invite_retried', {
+      await logAudit('deal', dealId, 'onboarding_invite_resent', {
         reviewed_by: user?.id,
         customer_email: customerEmail,
+        customer_name: deal.customer_name,
       });
 
-      return { customerEmail };
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.adminDeals() });
@@ -312,6 +280,7 @@ export function useSaveDealDraft() {
         term_months: dealDetails.termMonths,
         original_currency_code: initiation.currencyCode || REPORTING_CURRENCY,
         status: 'draft',
+        lifecycle_status: 'DRAFT',
       }).select('*').single();
       if (error) throw error;
       return data;

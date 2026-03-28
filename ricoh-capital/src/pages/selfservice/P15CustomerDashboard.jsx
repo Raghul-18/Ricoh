@@ -8,6 +8,9 @@ import { useLocale } from '../../context/LocaleContext';
 import { convertWithRate, useFxRate } from '../../hooks/useFx';
 
 const STATUS_META = {
+  awaiting_customer_signature: { labelKey: 'common.inReview', color: 'var(--amber)', bg: 'var(--amber-l)' },
+  awaiting_admin_signature: { labelKey: 'common.inReview', color: 'var(--amber)', bg: 'var(--amber-l)' },
+  pending: { labelKey: 'common.inReview', color: 'var(--amber)', bg: 'var(--amber-l)' },
   pending_signatures: { labelKey: 'common.inReview', color: 'var(--amber)', bg: 'var(--amber-l)' },
   partially_signed: { labelKey: 'common.inReview', color: 'var(--amber)', bg: 'var(--amber-l)' },
   active: { labelKey: 'portfolio.statusActive', color: 'var(--green)', bg: 'var(--green-l)' },
@@ -34,7 +37,7 @@ export default function P15CustomerDashboard() {
   const { data: fx } = useFxRate(reportingCurrency, primaryCurrency);
 
   const displayName = profile?.full_name?.split(' ')[0] || t('portal.greetingFallback');
-  const activeContracts = contracts.filter((contract) => contract.status === 'active');
+  const activeContracts = contracts.filter((contract) => contract.status === 'active' || contract.lifecycle_status === 'ACTIVE');
   const overdueContracts = contracts.filter((contract) => contract.status === 'overdue');
   const reportingOutstanding = activeContracts.reduce((sum, contract) => {
     const remaining = Math.max(0, (contract.term_months || 0) - (contract.payments_made || 0));
@@ -90,7 +93,7 @@ export default function P15CustomerDashboard() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {contracts.map((contract, index) => {
-              const meta = STATUS_META[contract.status] || STATUS_META.active;
+              const meta = STATUS_META[contract.status] || STATUS_META[contract.lifecycle_status?.toLowerCase()] || STATUS_META.pending;
               const originalCurrency = contract.deal?.original_currency_code || reportingCurrency;
               const originalMonthly = contract.monthly_payment || 0;
               const reportingMonthly = getReportingMonthlyValue(contract, reportingCurrency);

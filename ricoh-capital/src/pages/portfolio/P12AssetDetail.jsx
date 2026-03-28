@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, CreditCard, PenSquare, TrendingDown, XCircle } from 'lucide-react';
 import {
@@ -17,8 +17,10 @@ import { useAuth } from '../../auth/AuthContext';
 import { useAppContext } from '../../context/AppContext';
 import { LoadingSpinner } from '../../components/shared/FormField';
 import { useLocale } from '../../context/LocaleContext';
+import { invokeApi } from '../../lib/backendClient';
 
 const STATUS_META = {
+  pending: { labelKey: 'common.inReview', color: 'var(--amber)', dot: '#f59e0b' },
   active: { labelKey: 'portfolio.statusActive', color: 'var(--green)', dot: '#22c55e' },
   overdue: { labelKey: 'portfolio.statusOverdue', color: 'var(--red)', dot: '#ef4444' },
   maturing: { labelKey: 'portfolio.statusMaturing', color: 'var(--amber)', dot: '#f59e0b' },
@@ -217,13 +219,18 @@ export default function P12AssetDetail() {
   const markPaid = useMarkPaymentPaid();
   const [payingPayment, setPayingPayment] = useState(null);
 
+  useEffect(() => {
+    if (!id) return;
+    invokeApi(`/contracts/${id}/view`, {}, 'POST').catch(() => undefined);
+  }, [id]);
+
   if (contractLoading) return <div className="page-loading"><LoadingSpinner size={24} /></div>;
   if (!contract) return <div className="page-error">{t('portfolio.contractNotFound')}</div>;
 
   const originalCurrency = contract.deal?.original_currency_code || contract.deal?.reporting_currency_code || 'GBP';
   const backPath = isCustomer ? '/portal/dashboard' : '/portfolio';
   const backLabel = isCustomer ? `${String.fromCharCode(8592)} ${t('breadcrumb.dashboard')}` : `${String.fromCharCode(8592)} ${t('breadcrumb.portfolio')}`;
-  const statusMeta = STATUS_META[contract.status] || STATUS_META.active;
+  const statusMeta = STATUS_META[contract.status] || STATUS_META[contract.lifecycle_status?.toLowerCase()] || STATUS_META.pending;
   const paidPayments = schedule.filter((payment) => payment.status === 'paid').length;
   const progressPct = schedule.length ? Math.round((paidPayments / schedule.length) * 100) : 0;
   const totalPaid = schedule.filter((payment) => payment.status === 'paid').reduce((sum, payment) => sum + (payment.amount_paid || payment.amount || 0), 0);

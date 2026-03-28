@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { KeyRound, Mail, PenSquare, ShieldCheck } from 'lucide-react';
+import { Mail, PenSquare, ShieldCheck, TimerReset } from 'lucide-react';
 
 export default function DealApprovalResultPage() {
   const navigate = useNavigate();
@@ -10,11 +10,11 @@ export default function DealApprovalResultPage() {
   if (!result) {
     return (
       <div className="page">
-        <div className="card">
-          <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 10 }}>Approval result not available</div>
-          <div style={{ fontSize: 13, color: 'var(--tx3)', marginBottom: 16 }}>
-            The temporary password is only shown immediately after approval.
-          </div>
+          <div className="card">
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 10 }}>Approval result not available</div>
+            <div style={{ fontSize: 13, color: 'var(--tx3)', marginBottom: 16 }}>
+            The onboarding invite details are only shown immediately after approval.
+            </div>
           <button className="btn btn-primary" onClick={() => navigate('/admin/deals')}>Back to deal queue</button>
         </div>
       </div>
@@ -31,7 +31,7 @@ export default function DealApprovalResultPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>Customer portal credentials</div>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>Customer onboarding invite</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="info-banner blue">
             <Mail size={14} style={{ color: 'var(--blue)', flexShrink: 0 }} />
@@ -41,10 +41,10 @@ export default function DealApprovalResultPage() {
             </div>
           </div>
           <div className="info-banner" style={{ borderColor: 'var(--amber)', background: 'var(--amber-l)' }}>
-            <KeyRound size={14} style={{ color: 'var(--amber)', flexShrink: 0 }} />
+            <TimerReset size={14} style={{ color: 'var(--amber)', flexShrink: 0 }} />
             <div style={{ fontSize: 12 }}>
-              <div style={{ fontWeight: 600 }}>Temporary password</div>
-              <div style={{ fontFamily: "'DM Mono', monospace" }}>{result.tempPassword || 'Existing customer account linked - no new password generated'}</div>
+              <div style={{ fontWeight: 600 }}>Invite expiry</div>
+              <div>{result.onboardingInvite?.expiresAt ? new Date(result.onboardingInvite.expiresAt).toLocaleString() : 'Invite already exists for this contract'}</div>
             </div>
           </div>
         </div>
