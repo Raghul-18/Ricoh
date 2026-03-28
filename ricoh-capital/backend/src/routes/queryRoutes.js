@@ -21,6 +21,12 @@ const tableMap = {
   deal_amendments: 'deal_amendments',
 };
 
+const referencePrefixes = {
+  deals: 'DEAL',
+  quotes: 'QUO',
+  contracts: 'CON',
+};
+
 function toCamelRows(rows) {
   return rows.map((row) =>
     Object.fromEntries(
@@ -88,6 +94,45 @@ function colExpr(name) {
   return /^[a-zA-Z0-9_]+$/.test(name) ? name : null;
 }
 
+function parseSelectColumns(select) {
+  if (!select || select === '*') return '*';
+
+  const tokens = [];
+  let current = '';
+  let depth = 0;
+
+  for (const char of String(select)) {
+    if (char === '(') {
+      depth += 1;
+      current += char;
+      continue;
+    }
+    if (char === ')') {
+      depth = Math.max(0, depth - 1);
+      current += char;
+      continue;
+    }
+    if (char === ',' && depth === 0) {
+      tokens.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+
+  if (current.trim()) tokens.push(current.trim());
+
+  if (tokens.includes('*')) return '*';
+
+  const columns = tokens
+    .map((token) => token.split(':')[0]?.trim())
+    .map(colExpr)
+    .filter(Boolean);
+
+  if (!columns.length) return '*';
+  return [...new Set(columns)].join(', ');
+}
+
 function isHexId(value) {
   return typeof value === 'string' && /^[a-fA-F0-9]{32}$/.test(value);
 }
@@ -96,6 +141,71 @@ function comparisonSql({ col, op, bindKey, value }) {
   const rhs = isHexId(value) && (col === 'id' || col.endsWith('_id')) ? `HEXTORAW(:${bindKey})` : `:${bindKey}`;
   if (op === 'neq') return `${col} <> ${rhs}`;
   return `${col} = ${rhs}`;
+}
+
+function makeReference(prefix) {
+  const year = new Date().getFullYear();
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `${prefix}-${year}-${rand}`;
+}
+
+function enrichInsertRow(mapped, row) {
+  const next = { ...row };
+  if (referencePrefixes[mapped] && !next.reference_number) {
+    next.reference_number = makeReference(referencePrefixes[mapped]);
+  }
+  return next;
+}
+
+function buildWhereClause(filters = [], binds = {}) {
+  if (!filters.length) return '';
+  const where = filters
+    .map((f, i) => {
+      const col = colExpr(f.column);
+      if (!col) throw new Error(`Invalid column: ${f.column}`);
+      const bindKey = `f${i}`;
+      binds[bindKey] = f.value;
+      if (f.op === 'neq') return comparisonSql({ col, op: 'neq', bindKey, value: f.value });
+      if (f.op === 'in') {
+        return `${col} IN (${(f.value || [])
+          .map((v, ix) =>
+            isHexId(v) && (col === 'id' || col.endsWith('_id'))
+              ? `HEXTORAW(:${bindKey}_${ix})`
+              : `:${bindKey}_${ix}`,
+          )
+          .join(',')})`;
+      }
+      if (f.op === 'eq') return comparisonSql({ col, op: 'eq', bindKey, value: f.value });
+      throw new Error(`Unsupported operator: ${f.op}`);
+    })
+    .join(' AND ');
+
+  filters.forEach((f, i) => {
+    if (f.op === 'in' && Array.isArray(f.value)) {
+      f.value.forEach((v, ix) => {
+        binds[`f${i}_${ix}`] = v;
+      });
+      delete binds[`f${i}`];
+    }
+  });
+
+  return ` WHERE ${where}`;
+}
+
+async function runSelect(conn, mapped, { select, filters = [], orderBy, single, maybeSingle }) {
+  const binds = {};
+  const columns = parseSelectColumns(select);
+  let sql = `SELECT ${columns} FROM ${mapped}`;
+  sql += buildWhereClause(filters, binds);
+  if (orderBy?.column) {
+    const col = colExpr(orderBy.column);
+    if (col) sql += ` ORDER BY ${col} ${orderBy.ascending === false ? 'DESC' : 'ASC'}`;
+  }
+  const rawRows =
+    (await conn.execute(sql, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT })).rows || [];
+  const rows = toCamelRows(rawRows);
+  if (single || maybeSingle) return rows[0] || null;
+  return rows;
 }
 
 router.post('/query', requireAuth, async (req, res) => {
@@ -108,65 +218,24 @@ router.post('/query', requireAuth, async (req, res) => {
       const binds = {};
 
       if (action === 'select') {
-        const columns = select === '*' || !select ? '*' : '*';
-        let sql = `SELECT ${columns} FROM ${mapped}`;
-        if (filters.length) {
-          const where = filters
-            .map((f, i) => {
-              const col = colExpr(f.column);
-              if (!col) throw new Error(`Invalid column: ${f.column}`);
-              const bindKey = `f${i}`;
-              binds[bindKey] = f.value;
-              if (f.op === 'neq') return comparisonSql({ col, op: 'neq', bindKey, value: f.value });
-              if (f.op === 'in') {
-                return `${col} IN (${(f.value || [])
-                  .map((v, ix) =>
-                    isHexId(v) && (col === 'id' || col.endsWith('_id'))
-                      ? `HEXTORAW(:${bindKey}_${ix})`
-                      : `:${bindKey}_${ix}`,
-                  )
-                  .join(',')})`;
-              }
-              if (f.op === 'eq') return comparisonSql({ col, op: 'eq', bindKey, value: f.value });
-              throw new Error(`Unsupported operator: ${f.op}`);
-            })
-            .join(' AND ');
-          sql += ` WHERE ${where}`;
-          filters.forEach((f, i) => {
-            if (f.op === 'in' && Array.isArray(f.value)) {
-              f.value.forEach((v, ix) => {
-                binds[`f${i}_${ix}`] = v;
-              });
-              delete binds[`f${i}`];
-            }
-          });
-        }
-        if (orderBy?.column) {
-          const col = colExpr(orderBy.column);
-          if (col) sql += ` ORDER BY ${col} ${orderBy.ascending === false ? 'DESC' : 'ASC'}`;
-        }
-        const rawRows =
-          (await conn.execute(sql, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT })).rows || [];
-        const rows = toCamelRows(rawRows);
-        if (single) return rows[0] || null;
-        if (maybeSingle) return rows[0] || null;
-        return rows;
+        return runSelect(conn, mapped, { select, filters, orderBy, single, maybeSingle });
       }
 
       if (action === 'insert') {
         const rows = Array.isArray(values) ? values : [values];
         const inserted = [];
         for (const row of rows) {
-          const keys = Object.keys(row);
+          const enriched = enrichInsertRow(mapped, row);
+          const keys = Object.keys(enriched);
           const cols = keys.map((k) => colExpr(k)).filter(Boolean);
           const hasIdColumn = !cols.includes('id');
           const valueExpr = cols.map((c) => {
-            const v = row[c];
+            const v = enriched[c];
             if (isHexId(v) && (c === 'id' || c.endsWith('_id'))) return `HEXTORAW(:${c})`;
             return `:${c}`;
           });
           let sql = `INSERT INTO ${mapped} (${cols.join(',')}) VALUES (${valueExpr.join(',')})`;
-          const bindRow = Object.fromEntries(cols.map((c) => [c, buildBind(c, row[c])]));
+          const bindRow = Object.fromEntries(cols.map((c) => [c, buildBind(c, enriched[c])]));
 
           if (hasIdColumn) {
             sql += ' RETURNING id INTO :out_id';
@@ -175,11 +244,19 @@ router.post('/query', requireAuth, async (req, res) => {
 
           const result = await conn.execute(sql, bindRow);
           inserted.push({
-            ...row,
+            ...enriched,
             ...(hasIdColumn ? { id: normalizeValue(result.outBinds.out_id[0]) } : {}),
           });
         }
         await conn.commit();
+        if (select || single || maybeSingle) {
+          return runSelect(conn, mapped, {
+            select,
+            filters: [{ op: 'in', column: 'id', value: inserted.map((row) => row.id).filter(Boolean) }],
+            single,
+            maybeSingle,
+          });
+        }
         return Array.isArray(values) ? inserted : inserted[0];
       }
 
@@ -189,20 +266,12 @@ router.post('/query', requireAuth, async (req, res) => {
           binds[`u_${c}`] = buildBind(c, values[c]);
         });
         let sql = `UPDATE ${mapped} SET ${cols.map((c) => `${c} = :u_${c}`).join(', ')}`;
-        if (filters.length) {
-          sql +=
-            ' WHERE ' +
-            filters
-              .map((f, i) => {
-                const col = colExpr(f.column);
-                const key = `f${i}`;
-                binds[key] = f.value;
-                return comparisonSql({ col, op: f.op, bindKey: key, value: f.value });
-              })
-              .join(' AND ');
-        }
+        sql += buildWhereClause(filters, binds);
         await conn.execute(sql, binds);
         await conn.commit();
+        if (select || single || maybeSingle) {
+          return runSelect(conn, mapped, { select, filters, orderBy, single, maybeSingle });
+        }
         return { success: true };
       }
 

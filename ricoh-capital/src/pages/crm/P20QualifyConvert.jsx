@@ -122,13 +122,13 @@ export default function P20QualifyConvert() {
 
 function mapProductType(interest) {
   const map = {
-    'Asset Finance':       'Asset Finance — Hire Purchase',
-    'Equipment Leasing':   'Asset Finance — Finance Lease',
+    'Asset Finance':       'Asset Finance - Hire Purchase',
+    'Equipment Leasing':   'Asset Finance - Finance Lease',
     'Vehicle Finance':     'Vehicle Finance — Hire Purchase',
     'Working Capital':     'Working Capital Loan',
     'Invoice Finance':     'Invoice Finance',
   };
-  return map[interest] || 'Asset Finance — Hire Purchase';
+  return map[interest] || 'Asset Finance - Hire Purchase';
 }
 
 function calcQualificationScore(p) {

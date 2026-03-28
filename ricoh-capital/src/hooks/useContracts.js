@@ -3,6 +3,25 @@ import { db } from '../lib/backendClient';
 import { keys } from '../lib/queryClient';
 import { useAuth } from '../auth/AuthContext';
 
+async function attachDealMetadata(contracts) {
+  const items = Array.isArray(contracts) ? contracts : contracts ? [contracts] : [];
+  const dealIds = [...new Set(items.map((contract) => contract?.deal_id).filter(Boolean))];
+  if (!dealIds.length) return contracts;
+
+  const { data: deals, error } = await db.deals()
+    .select('*')
+    .in('id', dealIds);
+  if (error) throw error;
+
+  const dealsById = Object.fromEntries((deals || []).map((deal) => [deal.id, deal]));
+  const hydrated = items.map((contract) => ({
+    ...contract,
+    deal: dealsById[contract.deal_id] || null,
+  }));
+
+  return Array.isArray(contracts) ? hydrated : hydrated[0] || null;
+}
+
 export function useContracts() {
   const { user } = useAuth();
 
@@ -14,7 +33,7 @@ export function useContracts() {
         .eq('originator_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return attachDealMetadata(data || []);
     },
     enabled: !!user,
   });
@@ -32,7 +51,7 @@ export function useCustomerContracts() {
         .eq('customer_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return attachDealMetadata(data || []);
     },
     enabled: !!user,
   });
@@ -47,7 +66,7 @@ export function useContract(contractId) {
         .eq('id', contractId)
         .single();
       if (error) throw error;
-      return data;
+      return attachDealMetadata(data);
     },
     enabled: !!contractId,
   });
@@ -62,7 +81,7 @@ export function useContractByRef(refNumber) {
         .eq('reference_number', refNumber)
         .single();
       if (error) throw error;
-      return data;
+      return attachDealMetadata(data);
     },
     enabled: !!refNumber,
   });

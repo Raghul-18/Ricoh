@@ -26,6 +26,9 @@ function normalizeRow(row) {
     full_name: row.FULL_NAME,
     company_name: row.COMPANY_NAME,
     onboarding_status: row.ONBOARDING_STATUS,
+    language_code: row.LANGUAGE_CODE,
+    locale_code: row.LOCALE_CODE,
+    primary_currency_code: row.PRIMARY_CURRENCY_CODE,
   };
 }
 
@@ -42,8 +45,14 @@ export async function registerUser(payload) {
     }
 
     const inserted = await conn.execute(
-      `INSERT INTO users (id, email, password_hash, full_name, company_name, role, onboarding_status)
-       VALUES (SYS_GUID(), :email, :password_hash, :full_name, :company_name, :role, 'pending')
+      `INSERT INTO users (
+         id, email, password_hash, full_name, company_name, role, onboarding_status,
+         language_code, locale_code, primary_currency_code
+       )
+       VALUES (
+         SYS_GUID(), :email, :password_hash, :full_name, :company_name, :role, 'pending',
+         :language_code, :locale_code, :primary_currency_code
+       )
        RETURNING id INTO :id`,
       {
         email: payload.email,
@@ -51,6 +60,9 @@ export async function registerUser(payload) {
         full_name: payload.fullName,
         company_name: payload.companyName,
         role: payload.role || 'originator',
+        language_code: payload.languageCode || null,
+        locale_code: payload.localeCode || null,
+        primary_currency_code: payload.primaryCurrencyCode || null,
         id: { dir: oracledb.BIND_OUT, type: oracledb.BUFFER },
       },
     );
@@ -63,6 +75,9 @@ export async function registerUser(payload) {
       company_name: payload.companyName,
       role: payload.role || 'originator',
       onboarding_status: 'pending',
+      language_code: payload.languageCode || null,
+      locale_code: payload.localeCode || null,
+      primary_currency_code: payload.primaryCurrencyCode || null,
     };
   });
 }
@@ -70,7 +85,8 @@ export async function registerUser(payload) {
 export async function loginUser(email, password) {
   return withConnection(async (conn) => {
     const result = await conn.execute(
-      `SELECT id, email, password_hash, role, full_name, company_name, onboarding_status
+      `SELECT id, email, password_hash, role, full_name, company_name, onboarding_status,
+              language_code, locale_code, primary_currency_code
        FROM users WHERE email = :email`,
       { email },
       { outFormat: oracledb.OUT_FORMAT_OBJECT },
@@ -88,7 +104,8 @@ export async function loginUser(email, password) {
 export async function getProfile(userId) {
   return withConnection(async (conn) => {
     const result = await conn.execute(
-      `SELECT id, email, role, full_name, company_name, onboarding_status
+      `SELECT id, email, role, full_name, company_name, onboarding_status,
+              language_code, locale_code, primary_currency_code
        FROM users WHERE id = HEXTORAW(:id)`,
       { id: userId },
       { outFormat: oracledb.OUT_FORMAT_OBJECT },

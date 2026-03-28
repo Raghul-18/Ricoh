@@ -5,27 +5,38 @@ import { useContract, usePaymentSchedule, useMarkPaymentPaid, useCancelContract,
 import { useAuth } from '../../auth/AuthContext';
 import { useAppContext } from '../../context/AppContext';
 import { LoadingSpinner } from '../../components/shared/FormField';
+import { useLocale } from '../../context/LocaleContext';
 
 const STATUS_META = {
-  active:     { label: 'Active',    color: 'var(--green)',  dot: '#22c55e' },
-  overdue:    { label: 'Overdue',   color: 'var(--red)',    dot: '#ef4444' },
-  maturing:   { label: 'Maturing',  color: 'var(--amber)',  dot: '#f59e0b' },
-  completed:  { label: 'Completed', color: 'var(--tx3)',    dot: 'var(--tx4)' },
-  cancelled:  { label: 'Cancelled', color: 'var(--tx4)',    dot: 'var(--tx4)' },
+  active: { labelKey: 'portfolio.statusActive', color: 'var(--green)', dot: '#22c55e' },
+  overdue: { labelKey: 'portfolio.statusOverdue', color: 'var(--red)', dot: '#ef4444' },
+  maturing: { labelKey: 'portfolio.statusMaturing', color: 'var(--amber)', dot: '#f59e0b' },
+  completed: { labelKey: 'portfolio.statusCompleted', color: 'var(--tx3)', dot: 'var(--tx4)' },
+  cancelled: { labelKey: 'portfolio.statusCancelled', color: 'var(--tx4)', dot: 'var(--tx4)' },
 };
 
 const PAYMENT_META = {
-  upcoming:  { label: 'Upcoming',  color: 'var(--tx3)' },
-  due_soon:  { label: 'Due soon',  color: 'var(--amber)' },
-  paid:      { label: 'Paid',      color: 'var(--green)' },
-  overdue:   { label: 'Overdue',   color: 'var(--red)' },
+  upcoming: { labelKey: 'portfolio.paymentUpcoming', color: 'var(--tx3)' },
+  due_soon: { labelKey: 'portfolio.paymentDueSoon', color: 'var(--amber)' },
+  paid: { labelKey: 'portfolio.paymentPaid', color: 'var(--green)' },
+  overdue: { labelKey: 'portfolio.paymentOverdue', color: 'var(--red)' },
 };
+
+function DetailRow({ label, value }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: 6, borderBottom: '1px solid var(--bdr)', marginBottom: 6 }}>
+      <span style={{ color: 'var(--tx3)' }}>{label}</span>
+      <span style={{ fontWeight: 500, textAlign: 'right' }}>{value}</span>
+    </div>
+  );
+}
 
 export default function P12AssetDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAdmin, isCustomer } = useAuth();
   const { showToast } = useAppContext();
+  const { formatCurrency, formatDate, t } = useLocale();
   const { data: contract, isLoading: contractLoading } = useContract(id);
   const { data: schedule = [], isLoading: scheduleLoading } = usePaymentSchedule(id);
   const markPaid = useMarkPaymentPaid();
@@ -34,34 +45,34 @@ export default function P12AssetDetail() {
   const [payingPayment, setPayingPayment] = useState(null);
 
   if (contractLoading) return <div className="page-loading"><LoadingSpinner size={24} /></div>;
-  if (!contract) return <div className="page-error">Contract not found.</div>;
+  if (!contract) return <div className="page-error">{t('portfolio.contractNotFound')}</div>;
 
+  const originalCurrency = contract.deal?.original_currency_code || contract.deal?.reporting_currency_code || 'GBP';
   const backPath = isCustomer ? '/portal/dashboard' : '/portfolio';
-  const backLabel = isCustomer ? '← Dashboard' : '← Portfolio';
-
-  const sm = STATUS_META[contract.status] || STATUS_META.active;
-  const paidPayments = schedule.filter(p => p.status === 'paid').length;
+  const backLabel = isCustomer ? `${String.fromCharCode(8592)} ${t('breadcrumb.dashboard')}` : `${String.fromCharCode(8592)} ${t('breadcrumb.portfolio')}`;
+  const statusMeta = STATUS_META[contract.status] || STATUS_META.active;
+  const paidPayments = schedule.filter((payment) => payment.status === 'paid').length;
   const progressPct = schedule.length ? Math.round((paidPayments / schedule.length) * 100) : 0;
-  const totalPaid = schedule.filter(p => p.status === 'paid').reduce((s, p) => s + (p.amount_paid || p.amount || 0), 0);
-  const totalExtraPrincipal = schedule.reduce((s, p) => s + (p.extra_principal || 0), 0);
+  const totalPaid = schedule.filter((payment) => payment.status === 'paid').reduce((sum, payment) => sum + (payment.amount_paid || payment.amount || 0), 0);
+  const totalExtraPrincipal = schedule.reduce((sum, payment) => sum + (payment.extra_principal || 0), 0);
   const outstanding = Math.max(0, (schedule.length - paidPayments) * (contract.monthly_payment || 0) - totalExtraPrincipal);
 
   const handleMarkPaid = async (paymentId) => {
     try {
       await markPaid.mutateAsync({ paymentId, contractId: id });
-      showToast('Payment marked as paid', 'success');
-    } catch (err) {
-      showToast(err.message || 'Failed to mark payment', 'error');
+      showToast(t('portfolio.paymentMarkedPaid'), 'success');
+    } catch (error) {
+      showToast(error.message || t('portfolio.paymentMarkFailed'), 'error');
     }
   };
 
   const handleCancel = async () => {
     try {
       await cancelContract.mutateAsync(id);
-      showToast('Contract cancelled', 'success');
+      showToast(t('portfolio.contractCancelled'), 'success');
       setCancelConfirm(false);
-    } catch (err) {
-      showToast(err.message || 'Failed to cancel contract', 'error');
+    } catch (error) {
+      showToast(error.message || t('portfolio.contractCancelFailed'), 'error');
     }
   };
 
@@ -73,155 +84,135 @@ export default function P12AssetDetail() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div className="page-title">{contract.customer_name}</div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: sm.color, background: 'var(--bg)', border: `1px solid ${sm.color}33`, borderRadius: 10, padding: '3px 8px' }}>
-                {sm.label}
+              <span style={{ fontSize: 11, fontWeight: 600, color: statusMeta.color, background: 'var(--bg)', border: `1px solid ${statusMeta.color}33`, borderRadius: 10, padding: '3px 8px' }}>
+                {t(statusMeta.labelKey)}
               </span>
             </div>
             <div style={{ fontSize: 12, color: 'var(--tx3)' }}>
-              {contract.reference_number} · {contract.asset_description}
+              {contract.reference_number} - {contract.asset_description}
             </div>
           </div>
         </div>
 
-        {/* Admin: cancel contract */}
         {isAdmin && contract.status !== 'cancelled' && contract.status !== 'completed' && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {cancelConfirm ? (
               <>
-                <span style={{ fontSize: 12, color: 'var(--red)' }}>Confirm cancel?</span>
+                <span style={{ fontSize: 12, color: 'var(--red)' }}>{t('portfolio.confirmCancel')}</span>
                 <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)', border: '1px solid var(--red-m)' }} onClick={handleCancel} disabled={cancelContract.isPending}>
-                  <XCircle size={12} /> Yes, cancel
+                  <XCircle size={12} /> {t('portfolio.yesCancel')}
                 </button>
                 <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setCancelConfirm(false)}>
-                  Keep
+                  {t('portfolio.keep')}
                 </button>
               </>
             ) : (
               <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)', border: '1px solid var(--red-m)' }} onClick={() => setCancelConfirm(true)}>
-                <XCircle size={12} /> Cancel contract
+                <XCircle size={12} /> {t('portfolio.cancelContract')}
               </button>
             )}
           </div>
         )}
       </div>
 
-      {/* KPI row */}
       <div className="kpi-row">
         {[
-          { label: 'Monthly payment', value: `£${(contract.monthly_payment || 0).toLocaleString()}` },
-          { label: 'Asset value', value: `£${(contract.asset_value || 0).toLocaleString()}` },
-          { label: 'Total paid', value: `£${totalPaid.toLocaleString()}` },
-          { label: 'Outstanding', value: `£${outstanding.toLocaleString()}` },
-        ].map(k => (
-          <div key={k.label} className="metric-card">
-            <div className="metric-value" style={{ fontSize: 20 }}>{k.value}</div>
-            <div className="metric-label">{k.label}</div>
+          { label: t('common.monthlyPayment'), value: formatCurrency(contract.monthly_payment || 0, originalCurrency) },
+          { label: t('common.assetValue'), value: formatCurrency(contract.asset_value || 0, originalCurrency) },
+          { label: t('portfolio.totalPaid'), value: formatCurrency(totalPaid, originalCurrency) },
+          { label: t('portfolio.outstanding'), value: formatCurrency(outstanding, originalCurrency) },
+        ].map((item) => (
+          <div key={item.label} className="metric-card">
+            <div className="metric-value" style={{ fontSize: 20 }}>{item.value}</div>
+            <div className="metric-label">{item.label}</div>
           </div>
         ))}
       </div>
 
       <div className="two-col">
-        {/* Left: contract details */}
         <div>
           <div className="card" style={{ marginBottom: 12 }}>
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 12, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.5px' }}>Contract Details</div>
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 12, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.5px' }}>{t('portfolio.contractDetails')}</div>
             {[
-              ['Reference', contract.reference_number],
-              ['Asset', contract.asset_description],
-              ['Asset value', `£${(contract.asset_value || 0).toLocaleString()}`],
-              ['Term', `${contract.term_months} months`],
-              ['Start date', contract.start_date ? new Date(contract.start_date).toLocaleDateString('en-GB') : '—'],
-              ['End date', contract.end_date ? new Date(contract.end_date).toLocaleDateString('en-GB') : '—'],
-              ['Next payment', contract.next_payment_date ? new Date(contract.next_payment_date).toLocaleDateString('en-GB') : '—'],
-              ['Payments made', `${paidPayments} of ${schedule.length}`],
-            ].map(([k, v]) => (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: 6, borderBottom: '1px solid var(--bdr)', marginBottom: 6 }}>
-                <span style={{ color: 'var(--tx3)' }}>{k}</span>
-                <span style={{ fontWeight: 500 }}>{v}</span>
-              </div>
-            ))}
+              [t('common.reference'), contract.reference_number],
+              [t('common.asset'), contract.asset_description],
+              [t('common.assetValue'), formatCurrency(contract.asset_value || 0, originalCurrency)],
+              [t('common.term'), t('deals.months', { count: contract.term_months })],
+              [t('portfolio.startDate'), contract.start_date ? formatDate(contract.start_date, { day: 'numeric', month: 'short', year: 'numeric' }) : t('common.none')],
+              [t('portfolio.endDate'), contract.end_date ? formatDate(contract.end_date, { day: 'numeric', month: 'short', year: 'numeric' }) : t('common.none')],
+              [t('portfolio.nextPayment'), contract.next_payment_date ? formatDate(contract.next_payment_date, { day: 'numeric', month: 'short', year: 'numeric' }) : t('common.none')],
+              [t('portfolio.paymentsMade'), `${paidPayments} / ${schedule.length}`],
+            ].map(([label, value]) => <DetailRow key={label} label={label} value={value} />)}
           </div>
 
-          {/* Progress */}
           <div className="card">
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 12 }}>Agreement progress</div>
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 12 }}>{t('portfolio.agreementProgress')}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--tx3)', marginBottom: 6 }}>
-              <span>{paidPayments} payments made</span>
+              <span>{t('portfolio.paymentsMadeCount', { count: paidPayments })}</span>
               <span>{progressPct}%</span>
             </div>
             <div style={{ background: 'var(--bg)', borderRadius: 99, height: 8, overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: 99, background: sm.dot, width: `${progressPct}%`, transition: '1s' }} />
+              <div style={{ height: '100%', borderRadius: 99, background: statusMeta.dot, width: `${progressPct}%`, transition: '1s' }} />
             </div>
           </div>
         </div>
 
-        {/* Right: payment schedule */}
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontWeight: 600, fontSize: 13 }}>Payment schedule</div>
-            <span style={{ fontSize: 11, color: 'var(--tx3)' }}>{schedule.length} payments</span>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>{t('portfolio.paymentSchedule')}</div>
+            <span style={{ fontSize: 11, color: 'var(--tx3)' }}>{t('portfolio.paymentsCount', { count: schedule.length })}</span>
           </div>
 
           {scheduleLoading ? (
             <div style={{ textAlign: 'center', padding: 24 }}><LoadingSpinner size={20} /></div>
           ) : schedule.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'var(--tx4)', textAlign: 'center', padding: 20 }}>
-              No payment schedule found
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--tx4)', textAlign: 'center', padding: 20 }}>{t('portfolio.noPaymentSchedule')}</div>
           ) : (
             <div style={{ maxHeight: 420, overflowY: 'auto' }}>
               <table className="data-table">
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Due date</th>
-                    <th style={{ textAlign: 'right' }}>Amount</th>
-                    <th>Status</th>
-                    <th>Paid on</th>
+                    <th>{t('portfolio.dueDate')}</th>
+                    <th style={{ textAlign: 'right' }}>{t('portfolio.amount')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('portfolio.paidOn')}</th>
                     <th style={{ width: 110 }} />
                   </tr>
                 </thead>
                 <tbody>
-                  {schedule.map(p => {
-                    const pm = PAYMENT_META[p.status] || PAYMENT_META.upcoming;
-                    const canMarkPaid = isAdmin && p.status !== 'paid';
-                    const canPayNow = isCustomer && p.status !== 'paid';
+                  {schedule.map((payment) => {
+                    const paymentMeta = PAYMENT_META[payment.status] || PAYMENT_META.upcoming;
+                    const canMarkPaid = isAdmin && payment.status !== 'paid';
+                    const canPayNow = isCustomer && payment.status !== 'paid';
+
                     return (
-                      <tr key={p.id}>
-                        <td style={{ color: 'var(--tx4)', fontSize: 11 }}>{p.payment_number}</td>
-                        <td style={{ fontSize: 12 }}>{new Date(p.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                      <tr key={payment.id}>
+                        <td style={{ color: 'var(--tx4)', fontSize: 11 }}>{payment.payment_number}</td>
+                        <td style={{ fontSize: 12 }}>{formatDate(payment.due_date, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                         <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 12 }}>
-                          £{(p.amount || 0).toLocaleString()}
-                          {(p.extra_principal > 0) && (
+                          {formatCurrency(payment.amount || 0, originalCurrency)}
+                          {payment.extra_principal > 0 && (
                             <div style={{ fontSize: 10, color: 'var(--green)', fontWeight: 400 }}>
-                              +£{p.extra_principal.toLocaleString()} principal
+                              +{formatCurrency(payment.extra_principal, originalCurrency)} {t('portfolio.principal')}
                             </div>
                           )}
                         </td>
                         <td>
-                          <span style={{ fontSize: 11, color: pm.color, fontWeight: 500 }}>{pm.label}</span>
+                          <span style={{ fontSize: 11, color: paymentMeta.color, fontWeight: 500 }}>{t(paymentMeta.labelKey)}</span>
                         </td>
                         <td style={{ fontSize: 11, color: 'var(--tx4)' }}>
-                          {p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}
+                          {payment.paid_at ? formatDate(payment.paid_at, { day: 'numeric', month: 'short' }) : t('common.none')}
                         </td>
                         <td>
                           {canMarkPaid && (
-                            <button
-                              className="btn btn-ghost"
-                              style={{ fontSize: 10, padding: '2px 8px', color: 'var(--green)' }}
-                              onClick={() => handleMarkPaid(p.id)}
-                              disabled={markPaid.isPending}
-                            >
-                              <CheckCircle size={10} /> Paid
+                            <button className="btn btn-ghost" style={{ fontSize: 10, padding: '2px 8px', color: 'var(--green)' }} onClick={() => handleMarkPaid(payment.id)} disabled={markPaid.isPending}>
+                              <CheckCircle size={10} /> {t('portfolio.paymentPaid')}
                             </button>
                           )}
                           {canPayNow && (
-                            <button
-                              className="btn btn-primary"
-                              style={{ fontSize: 10, padding: '3px 10px' }}
-                              onClick={() => setPayingPayment(p)}
-                            >
-                              <CreditCard size={10} /> Pay now
+                            <button className="btn btn-primary" style={{ fontSize: 10, padding: '3px 10px' }} onClick={() => setPayingPayment(payment)}>
+                              <CreditCard size={10} /> {t('portfolio.payNow')}
                             </button>
                           )}
                         </td>
@@ -240,6 +231,7 @@ export default function P12AssetDetail() {
           payment={payingPayment}
           contractId={id}
           schedule={schedule}
+          currencyCode={originalCurrency}
           onClose={() => setPayingPayment(null)}
         />
       )}
@@ -247,32 +239,31 @@ export default function P12AssetDetail() {
   );
 }
 
-function PayNowModal({ payment, contractId, schedule, onClose }) {
+function PayNowModal({ payment, contractId, schedule, currencyCode, onClose }) {
   const [payExtra, setPayExtra] = useState(false);
   const [extraAmount, setExtraAmount] = useState('');
   const [extraError, setExtraError] = useState('');
   const payNow = useCustomerPayNow();
   const { showToast } = useAppContext();
+  const { formatCurrency, formatDate, t } = useLocale();
 
   const dueAmount = payment.amount || 0;
   const extra = parseFloat(extraAmount) || 0;
   const totalAmount = dueAmount + (payExtra ? extra : 0);
-
-  // Remaining payments after this one (exclude current + already paid)
-  const remainingPayments = (schedule || []).filter(p => p.status !== 'paid' && p.id !== payment.id);
+  const remainingPayments = (schedule || []).filter((item) => item.status !== 'paid' && item.id !== payment.id);
   const remainingCount = remainingPayments.length;
-  const currentRemainingTotal = remainingPayments.reduce((s, p) => s + (p.amount || 0), 0);
+  const currentRemainingTotal = remainingPayments.reduce((sum, item) => sum + (item.amount || 0), 0);
   const newRemainingTotal = Math.max(0, currentRemainingTotal - (payExtra ? extra : 0));
   const newMonthly = remainingCount > 0 ? Math.round((newRemainingTotal / remainingCount) * 100) / 100 : 0;
   const showImpact = payExtra && extra > 0 && remainingCount > 0;
 
   const handlePay = async () => {
     if (payExtra && extra <= 0) {
-      setExtraError('Enter a valid extra amount greater than zero');
+      setExtraError(t('portfolio.enterValidExtra'));
       return;
     }
     if (payExtra && extra > currentRemainingTotal && remainingCount > 0) {
-      setExtraError(`Maximum extra is £${currentRemainingTotal.toLocaleString()} (full remaining balance)`);
+      setExtraError(t('portfolio.maxExtra', { amount: formatCurrency(currentRemainingTotal, currencyCode) }));
       return;
     }
     try {
@@ -282,59 +273,51 @@ function PayNowModal({ payment, contractId, schedule, onClose }) {
         amountPaid: totalAmount,
         extraPrincipal: payExtra ? extra : 0,
       });
-      showToast('Payment recorded successfully', 'success');
+      showToast(t('portfolio.paymentRecorded'), 'success');
       onClose();
-    } catch (err) {
-      showToast(err.message || 'Payment failed. Please try again.', 'error');
+    } catch (error) {
+      showToast(error.message || t('portfolio.paymentFailed'), 'error');
     }
   };
 
   return (
-    <div className="modal-bg show" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-bg show" onClick={(event) => event.target === event.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: 400, width: '100%' }}>
         <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <CreditCard size={15} style={{ color: 'var(--coral)' }} />
-          Pay instalment #{payment.payment_number}
+          {t('portfolio.payInstalment', { count: payment.payment_number })}
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--tx3)', marginBottom: 3 }}>Due date</div>
+          <div style={{ fontSize: 11, color: 'var(--tx3)', marginBottom: 3 }}>{t('portfolio.dueDate')}</div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>
-            {new Date(payment.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {formatDate(payment.due_date, { day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
         </div>
 
-        {/* Amount due */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          background: 'var(--bg)', border: '1px solid var(--bdr)',
-          borderRadius: 'var(--rl)', padding: '12px 14px', marginBottom: 14,
-        }}>
-          <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Amount due</span>
-          <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--coral)' }}>
-            £{dueAmount.toLocaleString()}
-          </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--rl)', padding: '12px 14px', marginBottom: 14 }}>
+          <span style={{ fontSize: 12, color: 'var(--tx3)' }}>{t('portfolio.amountDue')}</span>
+          <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--coral)' }}>{formatCurrency(dueAmount, currencyCode)}</span>
         </div>
 
-        {/* Pay extra toggle */}
-        <div style={{
-          background: payExtra ? 'var(--green-l)' : 'var(--bg)',
-          border: `1px solid ${payExtra ? 'var(--green)' : 'var(--bdr)'}`,
-          borderRadius: 'var(--rl)', padding: '12px 14px', marginBottom: 16, transition: '0.2s',
-        }}>
+        <div style={{ background: payExtra ? 'var(--green-l)' : 'var(--bg)', border: `1px solid ${payExtra ? 'var(--green)' : 'var(--bdr)'}`, borderRadius: 'var(--rl)', padding: '12px 14px', marginBottom: 16, transition: '0.2s' }}>
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
             <input
               type="checkbox"
               checked={payExtra}
-              onChange={e => { setPayExtra(e.target.checked); setExtraAmount(''); setExtraError(''); }}
+              onChange={(event) => {
+                setPayExtra(event.target.checked);
+                setExtraAmount('');
+                setExtraError('');
+              }}
               style={{ marginTop: 2, width: 14, height: 14, accentColor: 'var(--green)', flexShrink: 0 }}
             />
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: payExtra ? 'var(--green)' : 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <TrendingDown size={13} /> Pay more to reduce principal
+                <TrendingDown size={13} /> {t('portfolio.payMoreReducePrincipal')}
               </div>
               <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2, lineHeight: 1.4 }}>
-                Any extra amount is applied directly off your outstanding balance
+                {t('portfolio.extraApplied')}
               </div>
             </div>
           </label>
@@ -342,49 +325,45 @@ function PayNowModal({ payment, contractId, schedule, onClose }) {
           {payExtra && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', marginBottom: 5 }}>
-                Extra amount (£)
+                {t('portfolio.extraAmount', { currency: currencyCode })}
               </div>
               <input
                 className="form-input"
                 type="number"
                 min="1"
                 step="1"
-                placeholder="e.g. 500"
+                placeholder="500"
                 value={extraAmount}
-                onChange={e => { setExtraAmount(e.target.value); setExtraError(''); }}
+                onChange={(event) => {
+                  setExtraAmount(event.target.value);
+                  setExtraError('');
+                }}
                 autoFocus
               />
-              {extraError && (
-                <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{extraError}</div>
-              )}
+              {extraError && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{extraError}</div>}
 
-              {/* Live impact preview */}
               {showImpact && (
-                <div style={{
-                  marginTop: 10, padding: '10px 12px',
-                  background: 'var(--green-l)', border: '1px solid var(--green)',
-                  borderRadius: 8,
-                }}>
+                <div style={{ marginTop: 10, padding: '10px 12px', background: 'var(--green-l)', border: '1px solid var(--green)', borderRadius: 8 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <TrendingDown size={11} /> Impact on remaining payments
+                    <TrendingDown size={11} /> {t('portfolio.impactRemainingPayments')}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--tx2)', marginBottom: 3 }}>
-                    <span>Remaining instalments</span>
+                    <span>{t('portfolio.remainingInstalments')}</span>
                     <strong>{remainingCount}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--tx2)', marginBottom: 3 }}>
-                    <span>Current monthly</span>
+                    <span>{t('portfolio.currentMonthly')}</span>
                     <span style={{ textDecoration: extra > 0 ? 'line-through' : 'none', color: 'var(--tx3)' }}>
-                      £{(remainingPayments[0]?.amount || 0).toLocaleString()}
+                      {formatCurrency(remainingPayments[0]?.amount || 0, currencyCode)}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--green)', fontWeight: 700 }}>
-                    <span>New monthly</span>
-                    <span>£{newMonthly.toLocaleString()}</span>
+                    <span>{t('portfolio.newMonthly')}</span>
+                    <span>{formatCurrency(newMonthly, currencyCode)}</span>
                   </div>
                   {extra >= currentRemainingTotal && (
                     <div style={{ marginTop: 6, fontSize: 11, color: 'var(--amber)', fontWeight: 600 }}>
-                      Extra amount clears the remaining balance entirely
+                      {t('portfolio.extraClearsBalance')}
                     </div>
                   )}
                 </div>
@@ -393,28 +372,16 @@ function PayNowModal({ payment, contractId, schedule, onClose }) {
           )}
         </div>
 
-        {/* Total */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '10px 14px', background: 'var(--coral-l)',
-          borderRadius: 'var(--rl)', marginBottom: 20,
-        }}>
-          <span style={{ fontSize: 12, fontWeight: 600 }}>Total to pay</span>
-          <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--coral)' }}>
-            £{totalAmount.toLocaleString()}
-          </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--coral-l)', borderRadius: 'var(--rl)', marginBottom: 20 }}>
+          <span style={{ fontSize: 12, fontWeight: 600 }}>{t('portfolio.totalToPay')}</span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--coral)' }}>{formatCurrency(totalAmount, currencyCode)}</span>
         </div>
 
         <div className="modal-actions">
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button
-            className="btn btn-primary"
-            onClick={handlePay}
-            disabled={payNow.isPending}
-            style={{ minWidth: 150 }}
-          >
+          <button className="btn btn-ghost" onClick={onClose}>{t('common.close')}</button>
+          <button className="btn btn-primary" onClick={handlePay} disabled={payNow.isPending} style={{ minWidth: 150 }}>
             {payNow.isPending ? <LoadingSpinner size={13} /> : <CreditCard size={13} />}
-            Pay £{totalAmount.toLocaleString()}
+            {t('portfolio.payAmount', { amount: formatCurrency(totalAmount, currencyCode) })}
           </button>
         </div>
       </div>

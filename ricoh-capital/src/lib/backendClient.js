@@ -5,6 +5,8 @@ import {
   authSignOut,
   authSignUp,
   callAdminEndpoint,
+  convertFxAmount,
+  getFxRate,
   getSignedFileUrl,
   queryTable,
   requestPasswordReset,
@@ -92,6 +94,9 @@ export const authClient = {
       fullName: payload?.options?.data?.full_name || payload.fullName,
       companyName: payload?.options?.data?.company_name || payload.companyName,
       role: payload?.options?.data?.role || payload.role || 'originator',
+      languageCode: payload?.options?.data?.language_code || payload.languageCode,
+      localeCode: payload?.options?.data?.locale_code || payload.localeCode,
+      primaryCurrencyCode: payload?.options?.data?.primary_currency_code || payload.primaryCurrencyCode,
     };
     const result = await authSignUp(normalized);
     notifyAuth('SIGNED_IN', {
@@ -150,6 +155,11 @@ export const db = {
   notifications: () => new QueryBuilder('notifications'),
   auditLogs: () => new QueryBuilder('audit_logs'),
   amendments: () => new QueryBuilder('deal_amendments'),
+};
+
+export const fxClient = {
+  getRate: (baseCurrency, targetCurrency) => getFxRate(baseCurrency, targetCurrency),
+  convert: (amount, baseCurrency, targetCurrency) => convertFxAmount(amount, baseCurrency, targetCurrency),
 };
 
 export async function uploadDocument(userId, documentType, file, onProgress) {

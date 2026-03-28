@@ -1,12 +1,14 @@
 import { useNavigate } from 'react-router-dom';
 import {
   Users, ClipboardList, Send, TrendingUp,
-  Clock, CheckCircle, AlertCircle, BarChart3, ChevronRight,
+  CheckCircle, AlertCircle, BarChart3, ChevronRight,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { db } from '../../lib/backendClient';
 import { keys } from '../../lib/queryClient';
 import { LoadingSpinner } from '../../components/shared/FormField';
+import { useLocale } from '../../context/LocaleContext';
+import { convertWithRate, useFxRate } from '../../hooks/useFx';
 
 function useAdminStats() {
   return useQuery({
@@ -14,8 +16,8 @@ function useAdminStats() {
     queryFn: async () => {
       const [apps, deals, contracts, originators] = await Promise.all([
         db.applications().select('status').neq('status', 'draft'),
-        db.deals().select('status, monthly_payment, asset_value').neq('status', 'draft'),
-        db.contracts().select('status, asset_value, monthly_payment'),
+        db.deals().select('status').neq('status', 'draft'),
+        db.contracts().select('status, deal_id, asset_value, monthly_payment'),
         db.profiles().select('id').eq('role', 'originator').eq('onboarding_status', 'approved'),
       ]);
       if (apps.error || deals.error || contracts.error || originators.error) {
@@ -25,15 +27,39 @@ function useAdminStats() {
       const appData = apps.data || [];
       const dealData = deals.data || [];
       const contractData = contracts.data || [];
+      const dealIds = [...new Set(contractData.map((contract) => contract.deal_id).filter(Boolean))];
+      const dealResult = dealIds.length
+        ? await db.deals().select('*').in('id', dealIds)
+        : { data: [], error: null };
+      if (dealResult.error) throw dealResult.error;
+      const dealsById = Object.fromEntries((dealResult.data || []).map((deal) => [deal.id, deal]));
+
+      const activeContracts = contractData.filter((item) => item.status === 'active');
+      const reportingPortfolioValue = activeContracts.reduce((sum, item) => {
+        const linkedDeal = dealsById[item.deal_id];
+        const originalCurrency = linkedDeal?.original_currency_code || 'GBP';
+        const reportingCurrencyCode = linkedDeal?.reporting_currency_code || (originalCurrency === 'GBP' ? 'GBP' : null);
+        if (Number.isFinite(Number(linkedDeal?.reporting_asset_value))) return sum + Number(linkedDeal.reporting_asset_value);
+        if (reportingCurrencyCode === 'GBP' || originalCurrency === 'GBP') return sum + Number(item.asset_value || 0);
+        return sum;
+      }, 0);
+      const reportingMonthlyBook = activeContracts.reduce((sum, item) => {
+        const linkedDeal = dealsById[item.deal_id];
+        const originalCurrency = linkedDeal?.original_currency_code || 'GBP';
+        const reportingCurrencyCode = linkedDeal?.reporting_currency_code || (originalCurrency === 'GBP' ? 'GBP' : null);
+        if (Number.isFinite(Number(linkedDeal?.reporting_monthly_payment))) return sum + Number(linkedDeal.reporting_monthly_payment);
+        if (reportingCurrencyCode === 'GBP' || originalCurrency === 'GBP') return sum + Number(item.monthly_payment || 0);
+        return sum;
+      }, 0);
 
       return {
-        pendingApplications: appData.filter(a => ['submitted', 'under_review'].includes(a.status)).length,
-        approvedApplications: appData.filter(a => a.status === 'approved').length,
-        dealsAwaitingReview: dealData.filter(d => ['submitted', 'under_review'].includes(d.status)).length,
-        dealsApproved: dealData.filter(d => d.status === 'approved').length,
-        activeContracts: contractData.filter(c => c.status === 'active').length,
-        totalPortfolioValue: contractData.filter(c => c.status === 'active').reduce((s, c) => s + (c.asset_value || 0), 0),
-        monthlyBook: contractData.filter(c => c.status === 'active').reduce((s, c) => s + (c.monthly_payment || 0), 0),
+        pendingApplications: appData.filter((item) => ['submitted', 'under_review'].includes(item.status)).length,
+        approvedApplications: appData.filter((item) => item.status === 'approved').length,
+        dealsAwaitingReview: dealData.filter((item) => ['submitted', 'under_review'].includes(item.status)).length,
+        dealsApproved: dealData.filter((item) => item.status === 'approved').length,
+        activeContracts: activeContracts.length,
+        reportingPortfolioValue,
+        reportingMonthlyBook,
         approvedOriginators: originators.data?.length || 0,
       };
     },
@@ -46,14 +72,8 @@ function useRecentActivity() {
     queryKey: ['admin', 'recent-activity'],
     queryFn: async () => {
       const [recentDeals, recentApps] = await Promise.all([
-        db.deals()
-          .select('*')
-          .in('status', ['submitted', 'under_review'])
-          .order('created_at', { ascending: false }),
-        db.applications()
-          .select('*')
-          .in('status', ['submitted', 'under_review'])
-          .order('created_at', { ascending: false }),
+        db.deals().select('*').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false }),
+        db.applications().select('*').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false }),
       ]);
       if (recentDeals.error || recentApps.error) {
         throw recentDeals.error || recentApps.error;
@@ -73,14 +93,8 @@ function useRecentActivity() {
       const profilesById = Object.fromEntries((profilesResult.data || []).map((profile) => [profile.id, profile]));
 
       return {
-        recentDeals: deals.map((deal) => ({
-          ...deal,
-          originator: profilesById[deal.originator_id] || null,
-        })),
-        recentApps: apps.map((app) => ({
-          ...app,
-          profiles: profilesById[app.user_id] || null,
-        })),
+        recentDeals: deals.map((deal) => ({ ...deal, originator: profilesById[deal.originator_id] || null })),
+        recentApps: apps.map((app) => ({ ...app, profiles: profilesById[app.user_id] || null })),
       };
     },
     staleTime: 1000 * 60,
@@ -89,32 +103,44 @@ function useRecentActivity() {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { data: stats, isLoading: statsLoading } = useAdminStats();
-  const { data: activity, isLoading: actLoading } = useRecentActivity();
+  const { primaryCurrency, reportingCurrency, formatCurrency, formatDate, t } = useLocale();
+  const { data: fx } = useFxRate(reportingCurrency, primaryCurrency);
+  const { data: stats, isLoading: statsLoading, error: statsError } = useAdminStats();
+  const { data: activity, isLoading: activityLoading, error: activityError } = useRecentActivity();
 
-  if (statsLoading) return <div className="page-loading"><LoadingSpinner size={24} /></div>;
+  const portfolioValue = primaryCurrency === reportingCurrency
+    ? stats?.reportingPortfolioValue
+    : convertWithRate(stats?.reportingPortfolioValue, fx?.rate);
+  const monthlyBook = primaryCurrency === reportingCurrency
+    ? stats?.reportingMonthlyBook
+    : convertWithRate(stats?.reportingMonthlyBook, fx?.rate);
 
   const kpis = [
-    { label: 'Approved originators', value: stats?.approvedOriginators ?? '—', icon: <Users size={18} />, color: 'var(--blue)', action: null },
-    { label: 'Applications pending', value: stats?.pendingApplications ?? '—', icon: <ClipboardList size={18} />, color: stats?.pendingApplications > 0 ? 'var(--amber)' : 'var(--green)', action: '/admin/review' },
-    { label: 'Deals awaiting decision', value: stats?.dealsAwaitingReview ?? '—', icon: <Send size={18} />, color: stats?.dealsAwaitingReview > 0 ? 'var(--coral)' : 'var(--green)', action: '/admin/deals' },
-    { label: 'Active contracts', value: stats?.activeContracts ?? '—', icon: <CheckCircle size={18} />, color: 'var(--green)', action: null },
-    { label: 'Total portfolio', value: stats ? `£${(stats.totalPortfolioValue / 1_000_000).toFixed(2)}M` : '—', icon: <TrendingUp size={18} />, color: 'var(--coral)', action: null },
-    { label: 'Monthly book', value: stats ? `£${(stats.monthlyBook).toLocaleString()}` : '—', icon: <BarChart3 size={18} />, color: 'var(--blue)', action: null },
+    { label: t('admin.approvedOriginators'), value: stats?.approvedOriginators ?? '-', icon: <Users size={18} />, color: 'var(--blue)', action: null },
+    { label: t('admin.pendingApplications'), value: stats?.pendingApplications ?? '-', icon: <ClipboardList size={18} />, color: stats?.pendingApplications > 0 ? 'var(--amber)' : 'var(--green)', action: '/admin/review' },
+    { label: t('admin.dealsAwaitingDecision'), value: stats?.dealsAwaitingReview ?? '-', icon: <Send size={18} />, color: stats?.dealsAwaitingReview > 0 ? 'var(--coral)' : 'var(--green)', action: '/admin/deals' },
+    { label: t('admin.activeContracts'), value: stats?.activeContracts ?? '-', icon: <CheckCircle size={18} />, color: 'var(--green)', action: null },
+    { label: t('admin.totalPortfolio'), value: Number.isFinite(portfolioValue) ? formatCurrency(portfolioValue, primaryCurrency) : '-', icon: <TrendingUp size={18} />, color: 'var(--coral)', action: null },
+    { label: t('admin.monthlyBook'), value: Number.isFinite(monthlyBook) ? formatCurrency(monthlyBook, primaryCurrency) : '-', icon: <BarChart3 size={18} />, color: 'var(--blue)', action: null },
   ];
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <div className="page-title">Admin dashboard</div>
-          <div className="page-sub">Platform overview at a glance</div>
+          <div className="page-title">{t('admin.title')}</div>
+          <div className="page-sub">{t('admin.subtitle')}</div>
         </div>
       </div>
 
-      {/* KPI grid */}
+      {statsError && (
+        <div className="card" style={{ marginBottom: 16, color: 'var(--red)', fontSize: 13 }}>
+          {statsError.message}
+        </div>
+      )}
+
       <div className="three-col" style={{ marginBottom: 24 }}>
-        {kpis.map(kpi => (
+        {kpis.map((kpi) => (
           <div
             key={kpi.label}
             className="metric-card"
@@ -122,98 +148,101 @@ export default function AdminDashboard() {
             onClick={() => kpi.action && navigate(kpi.action)}
           >
             <div style={{ color: kpi.color, marginBottom: 10 }}>{kpi.icon}</div>
-            <div className="metric-value" style={{ color: kpi.color }}>{kpi.value}</div>
+            <div className="metric-value" style={{ color: kpi.color }}>
+              {statsLoading ? <LoadingSpinner size={18} /> : kpi.value}
+            </div>
             <div className="metric-label">{kpi.label}</div>
-            {kpi.action && <div style={{ fontSize: 9, color: 'var(--tx4)', marginTop: 6 }}>Click to view →</div>}
+            {kpi.action && <div style={{ fontSize: 9, color: 'var(--tx4)', marginTop: 6 }}>{t('admin.clickToView')}</div>}
           </div>
         ))}
       </div>
 
       <div className="two-col-equal">
-        {/* Deals awaiting review */}
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>Deals pending decision</div>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>{t('admin.dealsPendingDecision')}</div>
             <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => navigate('/admin/deals')}>
-              View all <ChevronRight size={12} />
+              {t('admin.viewAll')} <ChevronRight size={12} />
             </button>
           </div>
-          {actLoading ? (
+          {activityLoading ? (
             <div style={{ textAlign: 'center', padding: 16 }}><LoadingSpinner size={20} /></div>
+          ) : activityError ? (
+            <div style={{ fontSize: 12, color: 'var(--red)', textAlign: 'center', padding: '16px 0' }}>{activityError.message}</div>
           ) : activity?.recentDeals.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'var(--tx4)', textAlign: 'center', padding: '16px 0' }}>No deals awaiting review</div>
+            <div style={{ fontSize: 12, color: 'var(--tx4)', textAlign: 'center', padding: '16px 0' }}>{t('admin.noDealsAwaitingReview')}</div>
           ) : (
-            activity?.recentDeals.map((d, i) => (
+            activity?.recentDeals.map((deal, index) => (
               <div
-                key={d.id}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < activity.recentDeals.length - 1 ? '1px solid var(--bdr)' : 'none', cursor: 'pointer' }}
+                key={deal.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: index < activity.recentDeals.length - 1 ? '1px solid var(--bdr)' : 'none', cursor: 'pointer' }}
                 onClick={() => navigate('/admin/deals')}
               >
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.status === 'under_review' ? 'var(--amber)' : 'var(--blue)', flexShrink: 0 }} />
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: deal.status === 'under_review' ? 'var(--amber)' : 'var(--blue)', flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.customer_name}</div>
+                  <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deal.customer_name}</div>
                   <div style={{ fontSize: 10, color: 'var(--tx4)', marginTop: 1 }}>
-                    {d.originator?.company_name} · {d.reference_number}
+                    {deal.originator?.company_name} - {deal.reference_number}
                   </div>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 600, color: d.status === 'under_review' ? 'var(--amber)' : 'var(--blue)', background: d.status === 'under_review' ? 'var(--amber-l)' : 'var(--blue-l)', borderRadius: 99, padding: '2px 7px' }}>
-                  {d.status === 'under_review' ? 'In review' : 'New'}
+                <span style={{ fontSize: 10, fontWeight: 600, color: deal.status === 'under_review' ? 'var(--amber)' : 'var(--blue)', background: deal.status === 'under_review' ? 'var(--amber-l)' : 'var(--blue-l)', borderRadius: 99, padding: '2px 7px' }}>
+                  {deal.status === 'under_review' ? t('common.inReview') : t('admin.new')}
                 </span>
               </div>
             ))
           )}
         </div>
 
-        {/* Applications pending */}
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>Originator applications</div>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>{t('admin.originatorApplications')}</div>
             <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => navigate('/admin/review')}>
-              View all <ChevronRight size={12} />
+              {t('admin.viewAll')} <ChevronRight size={12} />
             </button>
           </div>
-          {actLoading ? (
+          {activityLoading ? (
             <div style={{ textAlign: 'center', padding: 16 }}><LoadingSpinner size={20} /></div>
+          ) : activityError ? (
+            <div style={{ fontSize: 12, color: 'var(--red)', textAlign: 'center', padding: '16px 0' }}>{activityError.message}</div>
           ) : activity?.recentApps.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'var(--tx4)', textAlign: 'center', padding: '16px 0' }}>No pending applications</div>
+            <div style={{ fontSize: 12, color: 'var(--tx4)', textAlign: 'center', padding: '16px 0' }}>{t('admin.noPendingApplications')}</div>
           ) : (
-            activity?.recentApps.map((a, i) => (
+            activity?.recentApps.map((application, index) => (
               <div
-                key={a.id}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < activity.recentApps.length - 1 ? '1px solid var(--bdr)' : 'none', cursor: 'pointer' }}
+                key={application.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: index < activity.recentApps.length - 1 ? '1px solid var(--bdr)' : 'none', cursor: 'pointer' }}
                 onClick={() => navigate('/admin/review')}
               >
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: a.status === 'under_review' ? 'var(--amber)' : 'var(--blue)', flexShrink: 0 }} />
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: application.status === 'under_review' ? 'var(--amber)' : 'var(--blue)', flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {a.profiles?.company_name || a.profiles?.full_name || '—'}
+                    {application.profiles?.company_name || application.profiles?.full_name || '-'}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--tx4)', marginTop: 1 }}>
-                    {new Date(a.created_at).toLocaleDateString('en-GB')}
+                    {formatDate(application.created_at, { day: 'numeric', month: 'short', year: 'numeric' })}
                   </div>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 600, color: a.status === 'under_review' ? 'var(--amber)' : 'var(--blue)', background: a.status === 'under_review' ? 'var(--amber-l)' : 'var(--blue-l)', borderRadius: 99, padding: '2px 7px' }}>
-                  {a.status === 'under_review' ? 'In review' : 'New'}
+                <span style={{ fontSize: 10, fontWeight: 600, color: application.status === 'under_review' ? 'var(--amber)' : 'var(--blue)', background: application.status === 'under_review' ? 'var(--amber-l)' : 'var(--blue-l)', borderRadius: 99, padding: '2px 7px' }}>
+                  {application.status === 'under_review' ? t('common.inReview') : t('admin.new')}
                 </span>
               </div>
             ))
           )}
         </div>
 
-        {/* Quick actions */}
         <div className="card">
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Quick actions</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>{t('admin.quickActions')}</div>
           {[
-            { icon: <Send size={14} />, label: 'Review deal queue', sub: `${stats?.dealsAwaitingReview ?? 0} pending`, to: '/admin/deals', color: 'var(--coral)' },
-            { icon: <ClipboardList size={14} />, label: 'Review applications', sub: `${stats?.pendingApplications ?? 0} pending`, to: '/admin/review', color: 'var(--blue)' },
-            { icon: <AlertCircle size={14} />, label: 'Audit log', sub: 'Review all platform activity', to: '/admin/audit', color: 'var(--tx3)' },
-          ].map(item => (
+            { icon: <Send size={14} />, label: t('admin.reviewDealQueue'), sub: t('admin.pendingCount', { count: stats?.dealsAwaitingReview ?? 0 }), to: '/admin/deals', color: 'var(--coral)' },
+            { icon: <ClipboardList size={14} />, label: t('admin.reviewApplications'), sub: t('admin.pendingCount', { count: stats?.pendingApplications ?? 0 }), to: '/admin/review', color: 'var(--blue)' },
+            { icon: <AlertCircle size={14} />, label: t('admin.auditLog'), sub: t('admin.auditSub'), to: '/admin/audit', color: 'var(--tx3)' },
+          ].map((item) => (
             <div
               key={item.label}
               style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid var(--bdr)', cursor: 'pointer' }}
               onClick={() => navigate(item.to)}
             >
-              <div style={{ width: 34, height: 34, borderRadius: 8, background: item.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color, flexShrink: 0 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: `${item.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color, flexShrink: 0 }}>
                 {item.icon}
               </div>
               <div style={{ flex: 1 }}>
@@ -225,20 +254,19 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Platform health */}
         <div className="card">
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Platform summary</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>{t('admin.platformSummary')}</div>
           {[
-            ['Approved originators', stats?.approvedOriginators, 'var(--green)'],
-            ['Pending applications', stats?.pendingApplications, stats?.pendingApplications > 0 ? 'var(--amber)' : 'var(--green)'],
-            ['Deals in pipeline', stats?.dealsAwaitingReview, stats?.dealsAwaitingReview > 0 ? 'var(--coral)' : 'var(--green)'],
-            ['Approved deals (total)', stats?.dealsApproved, 'var(--blue)'],
-            ['Active contracts', stats?.activeContracts, 'var(--green)'],
-            ['Monthly book value', stats ? `£${(stats.monthlyBook).toLocaleString()}` : '—', 'var(--coral)'],
+            [t('admin.approvedOriginators'), stats?.approvedOriginators, 'var(--green)'],
+            [t('admin.pendingApplications'), stats?.pendingApplications, stats?.pendingApplications > 0 ? 'var(--amber)' : 'var(--green)'],
+            [t('admin.dealsInPipeline'), stats?.dealsAwaitingReview, stats?.dealsAwaitingReview > 0 ? 'var(--coral)' : 'var(--green)'],
+            [t('admin.approvedDealsTotal'), stats?.dealsApproved, 'var(--blue)'],
+            [t('admin.activeContracts'), stats?.activeContracts, 'var(--green)'],
+            [t('admin.monthlyBookValue'), Number.isFinite(monthlyBook) ? formatCurrency(monthlyBook, primaryCurrency) : '-', 'var(--coral)'],
           ].map(([label, value, color]) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: 8, borderBottom: '1px solid var(--bdr)', marginBottom: 8 }}>
               <span style={{ color: 'var(--tx3)' }}>{label}</span>
-              <span style={{ fontWeight: 700, color }}>{value ?? '—'}</span>
+              <span style={{ fontWeight: 700, color }}>{value ?? '-'}</span>
             </div>
           ))}
         </div>

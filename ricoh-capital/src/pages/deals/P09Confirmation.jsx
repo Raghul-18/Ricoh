@@ -1,17 +1,20 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Plus, LayoutDashboard, Info } from 'lucide-react';
+import { CheckCircle, Info, LayoutDashboard, Plus } from 'lucide-react';
 import { useDealStore } from '../../store/dealStore';
+import { useLocale } from '../../context/LocaleContext';
 
 export default function P09Confirmation() {
   const navigate = useNavigate();
-  const { submittedRefNumber, submittedDealId, initiation, assetDetails, getMonthlyPayment, reset } = useDealStore();
+  const { submittedRefNumber, initiation, assetDetails, getMonthlyPayment, reset } = useDealStore();
+  const { formatCurrency, t } = useLocale();
 
-  useEffect(() => { if (!submittedRefNumber) navigate('/deals/new'); }, [submittedRefNumber]);
+  useEffect(() => {
+    if (!submittedRefNumber) navigate('/deals/new');
+  }, [submittedRefNumber, navigate]);
 
   const monthly = getMonthlyPayment();
-
-  const handleNewDeal = () => { reset(); navigate('/deals/new'); };
+  const currencyCode = initiation.currencyCode || 'GBP';
 
   return (
     <div className="page" style={{ maxWidth: 600, margin: '0 auto' }}>
@@ -21,25 +24,26 @@ export default function P09Confirmation() {
             <CheckCircle size={36} style={{ color: 'var(--green)' }} />
           </div>
         </div>
-        <div style={{ fontWeight: 700, fontSize: 22, letterSpacing: '-.3px', marginBottom: 8 }}>Deal submitted</div>
+        <div style={{ fontWeight: 700, fontSize: 22, letterSpacing: '-.3px', marginBottom: 8 }}>{t('deals.dealSubmitted')}</div>
         <div style={{ fontSize: 14, color: 'var(--tx3)' }}>Your deal has been submitted for credit review.</div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 14 }}>Deal summary</div>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 14 }}>{t('deals.dealSummary')}</div>
         {[
-          ['Reference number', submittedRefNumber, true],
+          [t('deals.referenceNumber'), submittedRefNumber, true],
           ['Customer', initiation.customerName],
           ['Product', initiation.productType],
+          ['Deal currency', currencyCode],
           ['Your reference', initiation.originatorReference],
           ['Asset', `${assetDetails.year} ${assetDetails.make} ${assetDetails.model}`],
-          ['Asset value', `£${(assetDetails.assetValue || 0).toLocaleString()}`],
-          ['Monthly payment', `£${monthly.toLocaleString()}`],
+          ['Asset value', formatCurrency(assetDetails.assetValue || 0, currencyCode)],
+          [t('deals.monthlyPayment'), formatCurrency(monthly, currencyCode)],
           ['Term', `${assetDetails.termMonths} months`],
-        ].map(([k, v, mono]) => (
-          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: 6, borderBottom: '1px solid var(--bdr)', marginBottom: 6 }}>
-            <span style={{ color: 'var(--tx3)' }}>{k}</span>
-            <span style={{ fontWeight: mono ? 700 : 500, fontFamily: mono ? "'DM Mono', monospace" : undefined, color: mono ? 'var(--coral)' : undefined }}>{v}</span>
+        ].map(([label, value, mono]) => (
+          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: 6, borderBottom: '1px solid var(--bdr)', marginBottom: 6 }}>
+            <span style={{ color: 'var(--tx3)' }}>{label}</span>
+            <span style={{ fontWeight: mono ? 700 : 500, fontFamily: mono ? "'DM Mono', monospace" : undefined, color: mono ? 'var(--coral)' : undefined }}>{value}</span>
           </div>
         ))}
       </div>
@@ -47,7 +51,7 @@ export default function P09Confirmation() {
       <div className="info-banner blue" style={{ marginBottom: 24 }}>
         <Info size={15} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 11, lineHeight: 1.7 }}>
-          <strong>Next steps:</strong> A Ricoh Capital credit analyst will review your application within 2 business days. You'll receive an email when a decision is made.
+          <strong>Next steps:</strong> A Ricoh Capital credit analyst will review your application within 2 business days. The submitted record keeps its original currency, and future views can also show converted values in your current primary currency.
         </div>
       </div>
 
@@ -55,7 +59,7 @@ export default function P09Confirmation() {
         <button className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => navigate('/portfolio')}>
           <LayoutDashboard size={14} /> View portfolio
         </button>
-        <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleNewDeal}>
+        <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { reset(); navigate('/deals/new'); }}>
           <Plus size={14} /> Submit another deal
         </button>
       </div>

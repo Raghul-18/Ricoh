@@ -19,6 +19,12 @@ export const env = {
   port: Number(process.env.PORT || 4000),
   nodeEnv: process.env.NODE_ENV || 'development',
   frontendOrigin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
+  fx: {
+    apiBaseUrl: process.env.FX_API_BASE_URL || 'https://api.frankfurter.dev/v1',
+    apiKey: process.env.FX_API_KEY || '',
+    baseCurrency: process.env.FX_BASE_CURRENCY || 'GBP',
+    sourceName: process.env.FX_SOURCE_NAME || 'frankfurter',
+  },
   oracle: {
     user: required('ORACLE_USER'),
     password: required('ORACLE_PASSWORD'),
