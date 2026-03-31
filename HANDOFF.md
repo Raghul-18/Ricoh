@@ -10,6 +10,8 @@
   - `ricoh-capital/backend/db/migrations/003_deal_contract_security_and_lifecycle.sql`
 - Added the follow-up secure onboarding + e-sign migration:
   - `ricoh-capital/backend/db/migrations/004_secure_onboarding_and_esign.sql`
+- Added CRM prospect schema alignment migration:
+  - `ricoh-capital/backend/db/migrations/005_expand_prospects_crm_fields.sql`
 - Hardened backend auth/query behavior:
   - refresh token now reloads `email` and `role`
   - password update validates complexity server-side
@@ -34,6 +36,10 @@
   - `backend/src/email/service.js`
   - providers for Gmail SMTP and OCI SMTP-style delivery design
   - reusable templates for onboarding, approval, signing, and fully executed notifications
+- Added standalone email diagnostics:
+  - `backend/scripts/test-email.js`
+  - `backend/scripts/test-gmail-delivery.js`
+  - npm scripts: `npm run test-email`, `npm run test-gmail`
 - Added dedicated backend routes for:
   - approve deal
   - resend onboarding invite
@@ -48,17 +54,24 @@
   - contract viewing audit callback
   - signature-field normalization after signature table rename
   - customer/admin lifecycle display alignment
+- Approval/invite/signing responsiveness improved:
+  - email sending now happens after DB commit in background tasks
+  - Oracle pool defaults were increased and slow request / slow connection timing logs were added
+  - frontend audit logging is now background/non-blocking
+  - admin invite/approval UI now surfaces background-delivery status instead of implying immediate delivery
 - Dependencies are now installed and lockfiles updated.
 - Frontend production build succeeds locally with Vite/TypeScript.
 - Backend JS syntax checks succeed with `node --check`.
 
 ## What Is In Progress
-- Full runtime verification against a live Oracle schema with migrations `003` and `004`.
+- Full runtime verification against a live Oracle schema with migrations `003`, `004`, and `005`.
 - Manual QA of the new onboarding email -> onboard link -> contract sign flow.
 - Final cleanup of remaining screens/docs that still mention old temp-password behavior.
+- Deciding whether to keep Gmail SMTP for dev or switch to OCI Email Delivery / another provider that is stable on the required VPN path.
 
 ## Pending Tasks
 - Apply migration `004_secure_onboarding_and_esign.sql` after `003` in the target Oracle database.
+- Apply migration `005_expand_prospects_crm_fields.sql` after `004` in the target Oracle database before using CRM prospect create/edit flows.
 - Start the backend and run end-to-end smoke tests:
   - admin approves a deal
   - customer receives onboarding email
@@ -74,6 +87,7 @@
 - Check any reporting/export/admin pages that may still assume `contract_signatures` instead of `signatures`.
 - Review remaining translation/copy gaps in new onboarding and contract lifecycle UI.
 - Decide whether to address backend `npm audit` findings now or defer to a dependency-maintenance pass.
+- If email must be dependable on the corporate VPN, replace Gmail SMTP with OCI Email Delivery or another provider/path that the VPN permits.
 
 ## Key Decisions / Assumptions
 - Passwordless-first onboarding is now the primary customer access pattern; plaintext temp passwords are no longer the preferred flow.
@@ -82,6 +96,7 @@
 - Existing `status` columns were retained for compatibility, but `lifecycle_status` is the server-side source of truth for transitions.
 - Built-in e-sign remains an in-app typed-signature + audit-trail implementation, not DocuSign/Adobe Sign.
 - Email logic is abstracted behind a service interface; providers should stay dumb and contain no business rules.
+- Even when SMTP is unavailable, the platform should still generate onboarding links and continue approval/signing flows without blocking the UI.
 - Contract content is treated as immutable after approval; changes should create a new contract version and invalidate old signatures.
 
 ## Known Issues / Bugs
@@ -91,11 +106,16 @@
 - `docs/MIGRATION_CHECKLIST.md` still references the older invite/temp-password expectations and should be updated.
 - Some legacy copy and labels still refer to older statuses like `pending_signatures` or older onboarding wording.
 - There may still be screens outside the touched paths that assume the old `contract_signatures` table name.
+- Gmail SMTP was verified to be intermittently network-dependent from the current machine. Direct Gmail test sometimes succeeds and sometimes times out; this strongly points to corporate VPN / network-path interference rather than app-code failure.
+- `EmailPreview` logs only show rendered content; actual delivery status now comes from `[EmailDelivery]` / `[test-gmail]` logs.
 
 ## Next Recommended Steps
-1. Apply migrations `003` then `004` in a non-prod Oracle environment.
+1. Apply migrations `003`, `004`, then `005` in a non-prod Oracle environment.
 2. Start backend/frontend and execute the full manual QA flow for approval, onboarding, signing, resend, and termination.
-3. Update any remaining docs/UI copy that still mentions temp passwords or old signature table names.
-4. If runtime is clean, decide whether to:
+3. If email is needed from the VPN-backed environment, either:
+   - obtain OCI Email Delivery SMTP details for a real domain and switch `EMAIL_PROVIDER=oci`, or
+   - continue using generated onboarding links without inbox delivery in dev.
+4. Update any remaining docs/UI copy that still mentions temp passwords or old signature table names.
+5. If runtime is clean, decide whether to:
    - push this branch as the new lifecycle baseline, or
    - do one more cleanup commit for docs, bundle size, and dependency vulnerabilities.

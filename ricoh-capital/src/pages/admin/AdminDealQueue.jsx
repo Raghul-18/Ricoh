@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle, XCircle, Clock, ChevronDown, ChevronUp,
-  Building2, Wrench, CreditCard, Search, Send, Edit,
+  Building2, Wrench, CreditCard, Search, Send, Edit, PenSquare, ExternalLink,
 } from 'lucide-react';
 import { useAllDeals, useApproveDeal, useRejectDeal, useRetryCustomerInvite, useSetDealUnderReview } from '../../hooks/useDeals';
 import { useAllAmendments, useReviewAmendment } from '../../hooks/useAmendments';
+import { useContractByDealId, useContractSignatures } from '../../hooks/useContracts';
 import { useAppContext } from '../../context/AppContext';
 import { LoadingSpinner } from '../../components/shared/FormField';
 import { useLocale } from '../../context/LocaleContext';
@@ -119,6 +120,7 @@ function DealCard({ deal }) {
   const [notes, setNotes] = useState(deal.admin_notes || '');
   const [startDate, setStartDate] = useState('');
   const [customerEmail, setCustomerEmail] = useState(deal.customer_email || '');
+  const [latestInvite, setLatestInvite] = useState(null);
   const approve = useApproveDeal();
   const reject = useRejectDeal();
   const retryInvite = useRetryCustomerInvite();
@@ -127,6 +129,8 @@ function DealCard({ deal }) {
   const { primaryCurrency, reportingCurrency, formatCurrency, formatDate, t } = useLocale();
   const originalCurrency = getOriginalCurrency(deal, reportingCurrency);
   const { data: fx } = useFxRate(reportingCurrency, primaryCurrency);
+  const { data: approvedContract } = useContractByDealId(deal.id);
+  const { data: approvedContractSignatures = [] } = useContractSignatures(approvedContract?.id);
 
   const statusMeta = STATUS_META[deal.status] || STATUS_META.submitted;
   const originator = deal.originator || {};
@@ -156,9 +160,20 @@ function DealCard({ deal }) {
   const handleApprove = async () => {
     try {
       const result = await approve.mutateAsync({ dealId: deal.id, adminNotes: notes, startDate, customerEmail });
-      showToast('Deal approved and onboarding invite sent', 'success');
+      setLatestInvite(result?.onboardingInvite || null);
+      console.log('[AdminDealQueue] approve-deal success', { dealId: deal.id, result });
+      if (Array.isArray(result?.warnings) && result.warnings.length) {
+        const warningMessage = `Deal approved, but email delivery had issues: ${result.warnings.join(' | ')}`;
+        console.warn('[AdminDealQueue] approve-deal warnings', { dealId: deal.id, warnings: result.warnings });
+        showToast(warningMessage, 'warning');
+      } else if (result?.emailDeliveryQueued) {
+        showToast('Deal approved. Email delivery is being attempted in the background.', 'success');
+      } else {
+        showToast('Deal approved and onboarding invite sent', 'success');
+      }
       navigate(`/admin/deals/${deal.id}/approved`, { state: { approvalResult: result } });
     } catch (error) {
+      console.error('[AdminDealQueue] approve-deal failed', { dealId: deal.id, error });
       showToast(error.message, 'error');
     }
   };
@@ -187,13 +202,25 @@ function DealCard({ deal }) {
 
   const handleRetryInvite = async () => {
     if (!customerEmail?.trim()) {
+      console.warn('[AdminDealQueue] resend invite skipped: missing customer email', { dealId: deal.id });
       showToast('Please enter a customer email before sending invite', 'warning');
       return;
     }
     try {
-      await retryInvite.mutateAsync({ dealId: deal.id, customerEmail: customerEmail.trim() });
-      showToast(`Customer invite sent to ${customerEmail.trim()}`, 'success');
+      const result = await retryInvite.mutateAsync({ dealId: deal.id, customerEmail: customerEmail.trim() });
+      setLatestInvite(result?.onboardingInvite || null);
+      console.log('[AdminDealQueue] resend invite success', { dealId: deal.id, result });
+      if (Array.isArray(result?.warnings) && result.warnings.length) {
+        const warningMessage = `Invite generated, but email delivery had issues: ${result.warnings.join(' | ')}`;
+        console.warn('[AdminDealQueue] resend invite warnings', { dealId: deal.id, warnings: result.warnings });
+        showToast(warningMessage, 'warning');
+      } else if (result?.emailDeliveryQueued) {
+        showToast(`Invite generated for ${customerEmail.trim()}. Email delivery is being attempted in the background.`, 'success');
+      } else {
+        showToast(`Customer invite sent to ${customerEmail.trim()}`, 'success');
+      }
     } catch (error) {
+      console.error('[AdminDealQueue] resend invite failed', { dealId: deal.id, error });
       showToast(error.message, 'error');
     }
   };
@@ -201,6 +228,29 @@ function DealCard({ deal }) {
   const isPending = approve.isPending || reject.isPending || retryInvite.isPending || setUnderReview.isPending;
   const formatOriginal = (value, fallback) => formatCurrency(value ?? fallback ?? 0, originalCurrency);
   const formatCurrent = (value) => (Number.isFinite(value) ? formatCurrency(value, primaryCurrency) : null);
+  const customerSigned = approvedContractSignatures.some((item) => (item.signer_role || item.role) === 'customer');
+  const adminSigned = approvedContractSignatures.some((item) => (item.signer_role || item.role) === 'admin');
+
+  const handleOpenApprovalSummary = () => {
+    if (!approvedContract) return;
+    navigate(`/admin/deals/${deal.id}/approved`, {
+      state: {
+        approvalResult: {
+          dealId: deal.id,
+          contractId: approvedContract.id,
+          contractReference: approvedContract.reference_number,
+          customerEmail: customerEmail || deal.customer_email || '',
+          onboardingInvite: null,
+          signatureStatus: {
+            customerSigned,
+            adminSigned,
+            lifecycleStatus: approvedContract.lifecycle_status,
+          },
+          idempotent: true,
+        },
+      },
+    });
+  };
 
   return (
     <div className="card" style={{ marginBottom: 12, padding: 0, overflow: 'hidden' }}>
@@ -360,6 +410,22 @@ function DealCard({ deal }) {
 
           {deal.status === 'approved' && (
             <div style={{ borderTop: '1px solid var(--bdr)', paddingTop: 14, marginTop: 14 }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                <button className="btn btn-ghost" onClick={() => approvedContract && navigate(`/portfolio/${approvedContract.id}`)} disabled={!approvedContract}>
+                  <Edit size={13} /> View contract
+                </button>
+                <button className="btn btn-ghost" onClick={handleOpenApprovalSummary} disabled={!approvedContract}>
+                  <PenSquare size={13} /> Signing status
+                </button>
+                {latestInvite?.onboardingUrl && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => window.open(latestInvite.onboardingUrl, '_blank', 'noopener,noreferrer')}
+                  >
+                    <ExternalLink size={13} /> Open customer link
+                  </button>
+                )}
+              </div>
               <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 8 }}>Customer portal invite</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
                 <div>
@@ -380,6 +446,21 @@ function DealCard({ deal }) {
                   Resend onboarding invite
                 </button>
               </div>
+              {latestInvite?.onboardingUrl && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx3)', marginBottom: 4 }}>
+                    Latest onboarding link
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--tx2)', wordBreak: 'break-all' }}>
+                    {latestInvite.onboardingUrl}
+                  </div>
+                  {latestInvite.expiresAt && (
+                    <div style={{ fontSize: 10, color: 'var(--tx4)', marginTop: 4 }}>
+                      Expires: {new Date(latestInvite.expiresAt).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

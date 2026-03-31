@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import oracledb from 'oracledb';
 import { env } from '../config/env.js';
 import { withConnection } from '../db/oracle.js';
+import { isOnboardingOnlyPasswordPlaceholder } from './onboardingPassword.js';
 
 const PASSWORD_POLICY = /^(?=.*[A-Z])(?=.*[0-9]).{8,}$/;
 
@@ -95,7 +96,9 @@ export async function loginUser(email, password) {
     );
     const row = result.rows?.[0];
     if (!row) throw new Error('Invalid email or password');
-    if (!row.PASSWORD_HASH) throw new Error('Use your secure onboarding link or set a password first');
+    if (!row.PASSWORD_HASH || isOnboardingOnlyPasswordPlaceholder(row.PASSWORD_HASH)) {
+      throw new Error('Use your secure onboarding link or set a password first');
+    }
     const ok = await bcrypt.compare(password, row.PASSWORD_HASH);
     if (!ok) throw new Error('Invalid email or password');
 

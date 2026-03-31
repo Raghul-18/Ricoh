@@ -312,7 +312,13 @@ async function authorizeRequest(conn, req, table, action, filters, values) {
       case 'quotes':
         return {
           filters: addConstraintFilter(filters, 'originator_id', req.user.id),
-          values: action === 'insert' ? { ...values, originator_id: req.user.id } : values,
+          values: action === 'insert'
+            ? {
+                ...values,
+                originator_id: req.user.id,
+                ...(table === 'prospects' ? { assigned_to: values?.assigned_to || req.user.id } : {}),
+              }
+            : values,
         };
       case 'prospect_activities': {
         const prospectResult = await conn.execute(
@@ -357,6 +363,18 @@ async function authorizeRequest(conn, req, table, action, filters, values) {
     switch (table) {
       case 'profiles':
         return { filters: addConstraintFilter(filters, 'id', req.user.id), values };
+      case 'deals': {
+        const result = await conn.execute(
+          'SELECT deal_id FROM contracts WHERE customer_id = HEXTORAW(:id)',
+          { id: req.user.id },
+          { outFormat: oracledb.OUT_FORMAT_OBJECT },
+        );
+        const dealIds = (result.rows || []).map((row) => row.DEAL_ID.toString('hex'));
+        return {
+          filters: dealIds.length ? [...filters, { op: 'in', column: 'id', value: dealIds }] : [...filters],
+          values,
+        };
+      }
       case 'contracts':
         return { filters: addConstraintFilter(filters, 'customer_id', req.user.id), values };
       case 'payment_schedule': {

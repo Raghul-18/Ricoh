@@ -140,15 +140,18 @@ export function useSubmitDeal() {
       const { data, error } = await db.deals().insert(payload).select('*').single();
       if (error) throw error;
 
-      await db.notifications().insert({
-        user_id: user.id,
-        title: `Deal submitted - ${getDealReferenceLabel(data)}`,
-        body: `${initiation.customerName} - ${initiation.productType} - ${originalCurrency} ${monthly.toLocaleString()}/mo`,
-        type: 'deal_update',
-        related_id: data.id,
-      });
-
-      await logAudit('deal', data.id, 'submitted', { reference: getDealReferenceLabel(data), product_family: initiation.productFamily });
+      await Promise.all([
+        db.notifications().insert({
+          user_id: user.id,
+          title: `Deal submitted - ${getDealReferenceLabel(data)}`,
+          body: `${initiation.customerName} - ${initiation.productType} - ${originalCurrency} ${monthly.toLocaleString()}/mo`,
+          type: 'deal_update',
+          related_id: data.id,
+        }).then(({ error: notificationError }) => {
+          if (notificationError) throw notificationError;
+        }),
+        logAudit('deal', data.id, 'submitted', { reference: getDealReferenceLabel(data), product_family: initiation.productFamily }),
+      ]);
       setSubmitted(data.id, getDealReferenceLabel(data));
       return data;
     },
@@ -227,7 +230,6 @@ export function useSetDealUnderReview() {
 }
 
 export function useRetryCustomerInvite() {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -235,24 +237,10 @@ export function useRetryCustomerInvite() {
       if (!dealId) throw new Error('dealId is required');
       if (!customerEmail) throw new Error('Customer email is required');
 
-      const { data: deal, error: dealErr } = await db.deals().select('id, customer_name').eq('id', dealId).single();
-      if (dealErr || !deal) throw dealErr || new Error('Deal not found');
-
-      const { error: emailUpdateErr } = await db.deals().update({ customer_email: customerEmail }).eq('id', dealId);
-      if (emailUpdateErr) throw emailUpdateErr;
-
-      const result = await invokeAdminFunction('send-invite', {
+      return invokeAdminFunction('send-invite', {
         dealId,
         customerEmail,
       });
-
-      await logAudit('deal', dealId, 'onboarding_invite_resent', {
-        reviewed_by: user?.id,
-        customer_email: customerEmail,
-        customer_name: deal.customer_name,
-      });
-
-      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.adminDeals() });

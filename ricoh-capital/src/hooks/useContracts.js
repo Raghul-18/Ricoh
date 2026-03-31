@@ -79,6 +79,21 @@ export function useContract(contractId) {
   });
 }
 
+export function useContractByDealId(dealId) {
+  return useQuery({
+    queryKey: ['contract-by-deal', dealId],
+    queryFn: async () => {
+      const { data, error } = await db.contracts()
+        .select('*')
+        .eq('deal_id', dealId)
+        .single();
+      if (error) throw error;
+      return attachDealMetadata(data);
+    },
+    enabled: !!dealId,
+  });
+}
+
 export function usePaymentSchedule(contractId) {
   return useQuery({
     queryKey: keys.paymentSchedule(contractId),

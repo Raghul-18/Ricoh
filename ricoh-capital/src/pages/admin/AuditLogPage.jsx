@@ -11,6 +11,7 @@ import { LoadingSpinner } from '../../components/shared/FormField';
 import { useLocale } from '../../context/LocaleContext';
 
 const PAGE_SIZE = 30;
+const LOG_GRID_TEMPLATE = '180px 120px 190px minmax(260px, 1fr) 180px 28px';
 const ENTITY_OPTIONS = [
   { value: 'all', labelKey: 'common.all' },
   { value: 'deal', labelKey: 'admin.auditEntityDeals' },
@@ -54,6 +55,16 @@ function buildActionMeta(t) {
   };
 }
 
+function getAvatarInitials(performer) {
+  if (!performer) return '?';
+  const name = String(performer.full_name || '').trim();
+  if (name) {
+    const parts = name.split(/\s+/).filter(Boolean);
+    return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() || '').join('') || '?';
+  }
+  return String(performer.email || '?').trim()[0]?.toUpperCase() || '?';
+}
+
 function useAuditLogs({ entityType, search, page, pageSize }) {
   return useQuery({
     queryKey: [...keys.auditLogs(), entityType, search, page, pageSize],
@@ -75,7 +86,7 @@ function useAuditLogs({ entityType, search, page, pageSize }) {
 
       if (performerIds.length > 0) {
         const { data: performers, error: performerError } = await db.profiles()
-          .select('id, full_name, email, avatar_initials')
+          .select('id, full_name, email')
           .in('id', performerIds);
 
         if (performerError) throw performerError;
@@ -151,7 +162,7 @@ function LogRow({ log }) {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '160px 100px 120px 1fr 140px 28px',
+          gridTemplateColumns: LOG_GRID_TEMPLATE,
           alignItems: 'center',
           padding: '10px 16px',
           cursor: detailKeys.length > 0 ? 'pointer' : 'default',
@@ -186,12 +197,12 @@ function LogRow({ log }) {
           {entityMeta.label}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: actionMeta.color }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: actionMeta.color, minWidth: 0 }}>
           {actionMeta.icon}
-          <span style={{ fontWeight: 500 }}>{actionMeta.label}</span>
+          <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{actionMeta.label}</span>
         </div>
 
-        <div style={{ fontSize: 12, color: 'var(--tx2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 12, color: 'var(--tx2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
           {details.description || details.customer_name || details.company_name || details.reference || log.entity_id || '—'}
         </div>
 
@@ -213,7 +224,7 @@ function LogRow({ log }) {
                   flexShrink: 0,
                 }}
               >
-                {log.performer.avatar_initials || log.performer.full_name?.[0] || '?'}
+                {getAvatarInitials(log.performer)}
               </div>
               <span style={{ fontSize: 11, color: 'var(--tx3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {log.performer.full_name || log.performer.email}
@@ -342,7 +353,7 @@ export default function AuditLogPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '160px 100px 120px 1fr 140px 28px',
+            gridTemplateColumns: LOG_GRID_TEMPLATE,
             gap: 8,
             padding: '8px 16px',
             background: 'var(--bg)',

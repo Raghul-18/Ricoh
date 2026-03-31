@@ -6,6 +6,17 @@ const FX_FALLBACK_BASE = 'https://api.frankfurter.dev/v1';
 const TOKEN_KEY = 'rc_access_token';
 const REFRESH_KEY = 'rc_refresh_token';
 let refreshPromise = null;
+const SLOW_REQUEST_THRESHOLD_MS = 800;
+
+function logRequestTiming(kind, url, method, durationMs, extra = {}) {
+  if (durationMs < SLOW_REQUEST_THRESHOLD_MS) return;
+  console.warn(`[apiClient] slow ${kind}`, {
+    method,
+    url,
+    durationMs: Math.round(durationMs),
+    ...extra,
+  });
+}
 
 export function getAccessToken() {
   return localStorage.getItem(TOKEN_KEY) || '';
@@ -54,6 +65,7 @@ async function refreshAccessToken() {
 }
 
 async function request(url, options = {}, attempt = 0) {
+  const startedAt = performance.now();
   const token = getAccessToken();
   const headers = {
     'Content-Type': 'application/json',
@@ -79,12 +91,23 @@ async function request(url, options = {}, attempt = 0) {
       await refreshAccessToken();
       return request(url, options, attempt + 1);
     }
+    logRequestTiming('request', url, options.method || 'GET', performance.now() - startedAt, {
+      status: res.status,
+      ok: false,
+      attempt,
+    });
     throw new Error(message);
   }
+  logRequestTiming('request', url, options.method || 'GET', performance.now() - startedAt, {
+    status: res.status,
+    ok: true,
+    attempt,
+  });
   return body;
 }
 
 async function requestJson(url, options = {}) {
+  const startedAt = performance.now();
   const res = await fetch(url, options);
   const body = await res.json();
   if (!res.ok) {
@@ -92,8 +115,16 @@ async function requestJson(url, options = {}) {
       (typeof body?.error === 'string' && body.error) ||
       body?.message ||
       res.statusText;
+    logRequestTiming('requestJson', url, options.method || 'GET', performance.now() - startedAt, {
+      status: res.status,
+      ok: false,
+    });
     throw new Error(message);
   }
+  logRequestTiming('requestJson', url, options.method || 'GET', performance.now() - startedAt, {
+    status: res.status,
+    ok: true,
+  });
   return body;
 }
 
@@ -224,9 +255,19 @@ export async function callAdminEndpoint(name, payload) {
 }
 
 export async function authConsumeOnboardingToken(token) {
+  console.log('[apiClient] authConsumeOnboardingToken request', {
+    tokenLength: String(token || '').length,
+    tokenPreview: String(token || '').slice(0, 8),
+  });
   const body = await request(`${AUTH_BASE}/onboard/consume`, {
     method: 'POST',
     body: JSON.stringify({ token }),
+  });
+  console.log('[apiClient] authConsumeOnboardingToken response', {
+    redirect_path: body?.redirect_path,
+    contract_id: body?.contract_id,
+    userRole: body?.user?.role,
+    userId: body?.user?.id,
   });
   setTokens(body.session);
   return body;

@@ -3,7 +3,12 @@ import { env } from '../../config/env.js';
 
 export function createGmailProvider() {
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    connectionTimeout: env.email.timeouts.connectionMs,
+    greetingTimeout: env.email.timeouts.greetingMs,
+    socketTimeout: env.email.timeouts.socketMs,
     auth: {
       user: env.email.gmail.user,
       pass: env.email.gmail.appPassword,
@@ -12,7 +17,7 @@ export function createGmailProvider() {
 
   return {
     async send(message) {
-      await transporter.sendMail({
+      const info = await transporter.sendMail({
         from: env.email.fromAddress,
         to: message.to,
         cc: message.cc,
@@ -21,7 +26,14 @@ export function createGmailProvider() {
         text: message.text,
         html: message.html,
       });
-      return { provider: 'gmail' };
+      return {
+        provider: 'gmail',
+        accepted: info.accepted || [],
+        rejected: info.rejected || [],
+        pending: info.pending || [],
+        response: info.response || '',
+        messageId: info.messageId || '',
+      };
     },
   };
 }

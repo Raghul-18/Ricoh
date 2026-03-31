@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { withConnection } from '../db/oracle.js';
 import {
   createClosureRequest,
+  queueContractSigningEmails,
   recordContractViewed,
   reviewClosureRequest,
   signContract,
@@ -76,8 +77,12 @@ router.post('/contracts/:contractId/sign', requireAuth, async (req, res) => {
       await conn.commit();
       return signed;
     });
+    const { postCommitEmailJob, ...response } = result;
+    if (postCommitEmailJob?.type === 'contract-signing') {
+      queueContractSigningEmails(postCommitEmailJob);
+    }
 
-    return res.json(result);
+    return res.json(response);
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }

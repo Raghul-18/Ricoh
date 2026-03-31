@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "check-connections": "node scripts/check-connections.js"
+    "check-connections": "node scripts/check-connections.js",
+    "test-email": "node scripts/test-email.js",
+    "test-gmail": "node scripts/test-gmail-delivery.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

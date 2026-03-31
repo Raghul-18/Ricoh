@@ -59,6 +59,12 @@ router.post('/onboard/consume', async (req, res) => {
   try {
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: 'Onboarding token is required' });
+    console.log('[AuthRoute] /onboard/consume request', {
+      tokenLength: String(token || '').length,
+      tokenPreview: String(token || '').slice(0, 8),
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') || '',
+    });
 
     const result = await withConnection(async (conn) => {
       const consumed = await consumeOnboardingToken(conn, {
@@ -78,6 +84,11 @@ router.post('/onboard/consume', async (req, res) => {
 
     return res.json(result);
   } catch (error) {
+    console.error('[AuthRoute] /onboard/consume failed', {
+      error: error.message,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') || '',
+    });
     return res.status(400).json({ error: error.message });
   }
 });

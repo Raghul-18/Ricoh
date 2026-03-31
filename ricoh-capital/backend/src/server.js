@@ -21,6 +21,21 @@ app.use(
 );
 app.use(express.json({ limit: '15mb' }));
 app.use(cookieParser());
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on('finish', () => {
+    const durationMs = Date.now() - startedAt;
+    if (durationMs >= 800) {
+      console.warn('[HTTP] slow request', {
+        method: req.method,
+        path: req.originalUrl || req.url,
+        statusCode: res.statusCode,
+        durationMs,
+      });
+    }
+  });
+  next();
+});
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);

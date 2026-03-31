@@ -95,12 +95,6 @@ export function useReviewApplication() {
         info_requested: 'info_requested',
       };
       const onboardingStatus = onboardingStatusMap[status];
-      if (data?.user_id && onboardingStatus) {
-        const { error: userUpdateError } = await db.profiles()
-          .update({ onboarding_status: onboardingStatus })
-          .eq('id', data.user_id);
-        if (userUpdateError) throw userUpdateError;
-      }
 
       // Notify originator
       const notifMap = {
@@ -122,17 +116,33 @@ export function useReviewApplication() {
         },
       };
       const notif = notifMap[status];
-      if (notif && data?.user_id) {
-        await db.notifications().insert({
-          user_id: data.user_id,
-          title: notif.title,
-          body: notif.body,
-          type: 'onboarding_update',
-          related_id: id,
-        });
+      const followUpTasks = [];
+      if (data?.user_id && onboardingStatus) {
+        followUpTasks.push(
+          db.profiles()
+            .update({ onboarding_status: onboardingStatus })
+            .eq('id', data.user_id)
+            .then(({ error: userUpdateError }) => {
+              if (userUpdateError) throw userUpdateError;
+            }),
+        );
       }
+      if (notif && data?.user_id) {
+        followUpTasks.push(
+          db.notifications().insert({
+            user_id: data.user_id,
+            title: notif.title,
+            body: notif.body,
+            type: 'onboarding_update',
+            related_id: id,
+          }).then(({ error: notificationError }) => {
+            if (notificationError) throw notificationError;
+          }),
+        );
+      }
+      followUpTasks.push(Promise.resolve(logAudit('application', id, status, { reviewed_by: user?.id, notes })));
 
-      await logAudit('application', id, status, { reviewed_by: user?.id, notes });
+      await Promise.all(followUpTasks);
       return { ...data, applicationId: id };
     },
     onSuccess: (result) => {
@@ -198,10 +208,10 @@ export function useUpdateCheckStatus() {
         })
         .eq('id', id);
       if (error) throw error;
-      await logAudit('verification_check', id, `check_${status}`, {
+      await Promise.resolve(logAudit('verification_check', id, `check_${status}`, {
         application_id: applicationId,
         reviewed_by: user?.id,
-      });
+      }));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.adminQueue() }),
   });

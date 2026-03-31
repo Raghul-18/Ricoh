@@ -30,6 +30,10 @@ export const env = {
     password: required('ORACLE_PASSWORD'),
     connectString: required('ORACLE_CONNECT_STRING'),
     walletDir: process.env.ORACLE_WALLET_DIR,
+    poolMin: Number(process.env.ORACLE_POOL_MIN || 4),
+    poolMax: Number(process.env.ORACLE_POOL_MAX || 20),
+    poolIncrement: Number(process.env.ORACLE_POOL_INCREMENT || 2),
+    queueTimeoutMs: Number(process.env.ORACLE_QUEUE_TIMEOUT_MS || 15000),
   },
   jwt: {
     accessSecret: required('JWT_ACCESS_SECRET'),
@@ -41,6 +45,11 @@ export const env = {
     provider: process.env.EMAIL_PROVIDER || 'gmail',
     fromAddress: required('EMAIL_FROM_ADDRESS'),
     onboardingTtlHours: Number(process.env.ONBOARDING_TOKEN_TTL_HOURS || 48),
+    timeouts: {
+      connectionMs: Number(process.env.EMAIL_CONNECTION_TIMEOUT_MS || 4000),
+      greetingMs: Number(process.env.EMAIL_GREETING_TIMEOUT_MS || 4000),
+      socketMs: Number(process.env.EMAIL_SOCKET_TIMEOUT_MS || 5000),
+    },
     gmail: {
       user: process.env.GMAIL_SMTP_USER || '',
       appPassword: process.env.GMAIL_APP_PASSWORD || '',

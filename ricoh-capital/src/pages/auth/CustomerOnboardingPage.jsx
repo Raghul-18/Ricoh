@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Mail, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
@@ -14,28 +14,56 @@ export default function CustomerOnboardingPage() {
   const navigate = useNavigate();
   const { signInWithOnboardingToken } = useAuth();
   const [state, setState] = useState({ loading: true, error: '' });
+  const consumeStartedRef = useRef(false);
+  const outcomeHandledRef = useRef(false);
+  const signInWithTokenRef = useRef(signInWithOnboardingToken);
 
   useEffect(() => {
-    let active = true;
+    signInWithTokenRef.current = signInWithOnboardingToken;
+  }, [signInWithOnboardingToken]);
+
+  useEffect(() => {
     if (!token) {
+      console.error('[CustomerOnboardingPage] missing onboarding token in URL');
       setState({ loading: false, error: 'This onboarding link is invalid or incomplete.' });
       return undefined;
     }
+    if (consumeStartedRef.current) {
+      console.warn('[CustomerOnboardingPage] token consume already started, skipping duplicate call');
+      return undefined;
+    }
+    consumeStartedRef.current = true;
+    console.log('[CustomerOnboardingPage] consuming onboarding token', {
+      tokenLength: token.length,
+      tokenPreview: token.slice(0, 8),
+    });
 
-    signInWithOnboardingToken(token)
+    signInWithTokenRef.current(token)
       .then((result) => {
-        if (!active) return;
-        navigate(result.redirect_path || `/portal/contracts/${result.contract_id}`, { replace: true });
+        if (outcomeHandledRef.current) return;
+        outcomeHandledRef.current = true;
+        const targetPath = result.redirect_path || `/portal/contracts/${result.contract_id}`;
+        console.log('[CustomerOnboardingPage] onboarding consume success', {
+          result,
+          targetPath,
+        });
+        console.log('[CustomerOnboardingPage] redirecting to contract page', { targetPath });
+        window.location.replace(targetPath);
       })
       .catch((error) => {
-        if (!active) return;
+        if (outcomeHandledRef.current) return;
+        outcomeHandledRef.current = true;
+        console.error('[CustomerOnboardingPage] onboarding consume failed', {
+          tokenLength: token.length,
+          tokenPreview: token.slice(0, 8),
+          error,
+          message: error.message,
+        });
         setState({ loading: false, error: error.message || 'This onboarding link is invalid or expired.' });
       });
 
-    return () => {
-      active = false;
-    };
-  }, [navigate, signInWithOnboardingToken, token]);
+    return undefined;
+  }, [navigate, token]);
 
   return (
     <div className="page" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>

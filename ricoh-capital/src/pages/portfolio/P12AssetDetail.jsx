@@ -251,6 +251,11 @@ export default function P12AssetDetail() {
       <div className="page-header">
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <button className="btn btn-ghost" onClick={() => navigate(backPath)}>{backLabel}</button>
+          {isAdmin && (
+            <button className="btn btn-ghost" onClick={() => navigate('/admin/deals')}>
+              {String.fromCharCode(8592)} Deal queue
+            </button>
+          )}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div className="page-title">{contract.customer_name}</div>
@@ -365,7 +370,7 @@ export default function P12AssetDetail() {
                         <td>
                           {canMarkPaid && (
                             <button className="btn btn-ghost" style={{ fontSize: 10, padding: '2px 8px', color: 'var(--green)' }} onClick={() => handleMarkPaid(payment.id)} disabled={markPaid.isPending}>
-                              <CheckCircle size={10} /> {t('portfolio.paymentPaid')}
+                              <CheckCircle size={10} /> Mark paid
                             </button>
                           )}
                           {canPayNow && (

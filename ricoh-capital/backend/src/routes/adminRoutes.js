@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { withConnection } from '../db/oracle.js';
-import { approveDealTransaction, resendOnboardingInvite } from '../services/contractLifecycleService.js';
+import {
+  approveDealTransaction,
+  queueApproveDealEmails,
+  queueResendOnboardingInviteEmail,
+  resendOnboardingInvite,
+} from '../services/contractLifecycleService.js';
 
 const router = Router();
 
@@ -18,7 +23,11 @@ router.post('/admin/approve-deal', requireAuth, requireRole('admin'), async (req
       await conn.commit();
       return approved;
     });
-    return res.json(result);
+    const { postCommitEmailJob, ...response } = result;
+    if (postCommitEmailJob?.type === 'approve-deal') {
+      queueApproveDealEmails(postCommitEmailJob);
+    }
+    return res.json(response);
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
@@ -35,7 +44,11 @@ router.post('/admin/send-invite', requireAuth, requireRole('admin'), async (req,
       await conn.commit();
       return invite;
     });
-    return res.json(result);
+    const { postCommitEmailJob, ...response } = result;
+    if (postCommitEmailJob?.type === 'resend-onboarding-invite') {
+      queueResendOnboardingInviteEmail(postCommitEmailJob);
+    }
+    return res.json(response);
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }

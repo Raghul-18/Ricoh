@@ -3,17 +3,51 @@ import { db } from '../lib/backendClient';
 import { keys } from '../lib/queryClient';
 import { useAuth } from '../auth/AuthContext';
 
+async function hydrateAmendments(items) {
+  const amendments = items || [];
+  if (!amendments.length) return amendments;
+
+  const userIds = [...new Set(amendments.flatMap((item) => [item.requested_by, item.reviewed_by]).filter(Boolean))];
+  const dealIds = [...new Set(amendments.map((item) => item.deal_id).filter(Boolean))];
+
+  let usersById = {};
+  let dealsById = {};
+
+  if (userIds.length) {
+    const { data: users, error: userError } = await db.profiles()
+      .select('id, full_name, company_name, email')
+      .in('id', userIds);
+    if (userError) throw userError;
+    usersById = Object.fromEntries((users || []).map((user) => [user.id, user]));
+  }
+
+  if (dealIds.length) {
+    const { data: deals, error: dealError } = await db.deals()
+      .select('id, reference_number, customer_name, originator_id')
+      .in('id', dealIds);
+    if (dealError) throw dealError;
+    dealsById = Object.fromEntries((deals || []).map((deal) => [deal.id, deal]));
+  }
+
+  return amendments.map((amendment) => ({
+    ...amendment,
+    requester: amendment.requested_by ? usersById[amendment.requested_by] || null : null,
+    reviewer: amendment.reviewed_by ? usersById[amendment.reviewed_by] || null : null,
+    deal: amendment.deal_id ? dealsById[amendment.deal_id] || null : null,
+  }));
+}
+
 // Originator: fetch amendments for a specific deal
 export function useDealAmendments(dealId) {
   return useQuery({
     queryKey: keys.amendments(dealId),
     queryFn: async () => {
       const { data, error } = await db.amendments()
-        .select('*, requester:requested_by(full_name, avatar_initials), reviewer:reviewed_by(full_name)')
+        .select('*')
         .eq('deal_id', dealId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return hydrateAmendments(data || []);
     },
     enabled: !!dealId,
   });
@@ -63,16 +97,12 @@ export function useAllAmendments(statusFilter = null) {
     queryKey: [...keys.adminAmendments(), statusFilter],
     queryFn: async () => {
       let q = db.amendments()
-        .select(`
-          *,
-          deal:deal_id(reference_number, customer_name, originator_id),
-          requester:requested_by(full_name, company_name, email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
       if (statusFilter) q = q.eq('status', statusFilter);
       const { data, error } = await q;
       if (error) throw error;
-      return data || [];
+      return hydrateAmendments(data || []);
     },
     enabled: !!isAdmin,
   });

@@ -29,22 +29,47 @@ function buildMessage(templateName, payload) {
   };
 }
 
+function logEmailPreview(templateName, message) {
+  console.log('[EmailPreview]', JSON.stringify({
+    template: templateName,
+    to: message.to,
+    cc: message.cc || null,
+    bcc: message.bcc || null,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    metadata: message.metadata || {},
+  }, null, 2));
+}
+
+async function sendWithPreview(provider, templateName, payload) {
+  const message = buildMessage(templateName, payload);
+  logEmailPreview(templateName, message);
+  const result = await provider.send(message);
+  console.log('[EmailDelivery]', JSON.stringify({
+    template: templateName,
+    to: message.to,
+    result,
+  }, null, 2));
+  return result;
+}
+
 export function getEmailService() {
   if (cachedService) return cachedService;
   const provider = createProvider();
 
   cachedService = {
     async sendOnboardingInvite(payload) {
-      return provider.send(buildMessage('onboarding-invite', payload));
+      return sendWithPreview(provider, 'onboarding-invite', payload);
     },
     async sendDealApproved(payload) {
-      return provider.send(buildMessage('deal-approved', payload));
+      return sendWithPreview(provider, 'deal-approved', payload);
     },
     async sendContractSigned(payload) {
-      return provider.send(buildMessage('contract-signed', payload));
+      return sendWithPreview(provider, 'contract-signed', payload);
     },
     async sendFullyExecuted(payload) {
-      return provider.send(buildMessage('fully-executed', payload));
+      return sendWithPreview(provider, 'fully-executed', payload);
     },
   };
 

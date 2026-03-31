@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
 import oracledb from 'oracledb';
 import { env } from '../config/env.js';
+import { withConnection } from '../db/oracle.js';
 import { getEmailService } from '../email/service.js';
+import { makeOnboardingOnlyPasswordPlaceholder } from './onboardingPassword.js';
 
 const DEAL_LIFECYCLE = {
   DRAFT: 'DRAFT',
@@ -95,11 +97,12 @@ async function ensureCustomerUser(conn, { email, customerName }) {
     `INSERT INTO users (
        id, email, password_hash, full_name, role, onboarding_status, must_reset, created_at, updated_at
      ) VALUES (
-       SYS_GUID(), :email, NULL, :full_name, 'customer', 'approved', 0, SYSTIMESTAMP, SYSTIMESTAMP
+       SYS_GUID(), :email, :password_hash, :full_name, 'customer', 'approved', 0, SYSTIMESTAMP, SYSTIMESTAMP
      )
      RETURNING id INTO :out_id`,
     {
       email,
+      password_hash: makeOnboardingOnlyPasswordPlaceholder(),
       full_name: customerName || null,
       out_id: { dir: oracledb.BIND_OUT, type: oracledb.BUFFER },
     },
@@ -132,6 +135,28 @@ async function insertAuditLog(conn, { actorId, action, entityType, entityId, met
       details: JSON.stringify(metadata || {}),
     },
   );
+}
+
+function queueBackgroundTask(label, task) {
+  setTimeout(() => {
+    void (async () => {
+      try {
+        await task();
+      } catch (error) {
+        console.error('[BackgroundTask] failed', {
+          label,
+          error: error.message,
+        });
+      }
+    })();
+  }, 0);
+}
+
+async function writeAuditLogAfterCommit(payload) {
+  await withConnection(async (conn) => {
+    await insertAuditLog(conn, payload);
+    await conn.commit();
+  });
 }
 
 function deriveContractLifecycle({ customerSigned, adminSigned }) {
@@ -201,6 +226,16 @@ async function createOnboardingToken(conn, { userId, contractId, adminId }) {
     },
   );
 
+  console.log('[OnboardingToken] created', {
+    userId,
+    contractId,
+    createdBy: adminId,
+    tokenLength: token.plain.length,
+    tokenPreview: token.plain.slice(0, 8),
+    tokenHashPreview: token.hash.slice(0, 12),
+    expiresAt: expiresAt.toISOString(),
+  });
+
   return { plainToken: token.plain, expiresAt };
 }
 
@@ -214,6 +249,164 @@ async function sendOnboardingInviteEmail({ customerEmail, customerName, contract
       onboardingUrl,
       expiresAtLabel: expiresAt.toISOString(),
     },
+  });
+}
+
+export function queueApproveDealEmails({
+  adminId,
+  dealId,
+  contractId,
+  customerEmail,
+  customerName,
+  contractReference,
+  dealReference,
+  onboardingUrl,
+  expiresAt,
+}) {
+  queueBackgroundTask('approve-deal-emails', async () => {
+    const emailService = getEmailService();
+    const [onboardingEmailResult, approvalEmailResult] = await Promise.allSettled([
+      sendOnboardingInviteEmail({
+        customerEmail,
+        customerName,
+        contractReference,
+        onboardingUrl,
+        expiresAt: new Date(expiresAt),
+      }),
+      emailService.sendDealApproved({
+        to: customerEmail,
+        variables: {
+          customerName,
+          contractReference,
+          lifecycleStatus: CONTRACT_LIFECYCLE.AWAITING_CUSTOMER_SIGNATURE,
+          dealReference,
+        },
+      }),
+    ]);
+
+    if (onboardingEmailResult.status === 'fulfilled') {
+      await writeAuditLogAfterCommit({
+        actorId: adminId,
+        entityType: 'contract',
+        entityId: contractId,
+        action: 'onboarding_sent',
+        metadata: { customerEmail, expiresAt },
+      });
+    } else {
+      await writeAuditLogAfterCommit({
+        actorId: adminId,
+        entityType: 'contract',
+        entityId: contractId,
+        action: 'onboarding_send_failed',
+        metadata: {
+          customerEmail,
+          expiresAt,
+          error: onboardingEmailResult.reason?.message || String(onboardingEmailResult.reason),
+        },
+      });
+    }
+
+    if (approvalEmailResult.status === 'rejected') {
+      await writeAuditLogAfterCommit({
+        actorId: adminId,
+        entityType: 'deal',
+        entityId: dealId,
+        action: 'deal_approval_email_failed',
+        metadata: {
+          customerEmail,
+          error: approvalEmailResult.reason?.message || String(approvalEmailResult.reason),
+        },
+      });
+    }
+  });
+}
+
+export function queueResendOnboardingInviteEmail({
+  adminId,
+  contractId,
+  customerEmail,
+  customerName,
+  contractReference,
+  onboardingUrl,
+  expiresAt,
+}) {
+  queueBackgroundTask('resend-onboarding-invite-email', async () => {
+    try {
+      await sendOnboardingInviteEmail({
+        customerEmail,
+        customerName,
+        contractReference,
+        onboardingUrl,
+        expiresAt: new Date(expiresAt),
+      });
+      await writeAuditLogAfterCommit({
+        actorId: adminId,
+        entityType: 'contract',
+        entityId: contractId,
+        action: 'onboarding_sent',
+        metadata: { customerEmail, expiresAt },
+      });
+    } catch (error) {
+      await writeAuditLogAfterCommit({
+        actorId: adminId,
+        entityType: 'contract',
+        entityId: contractId,
+        action: 'onboarding_send_failed',
+        metadata: {
+          customerEmail,
+          expiresAt,
+          error: error.message || String(error),
+        },
+      });
+    }
+  });
+}
+
+export function queueContractSigningEmails({
+  customerEmail,
+  customerName,
+  contractReference,
+  signerRole,
+  lifecycleStatus,
+  activationState,
+}) {
+  if (!customerEmail) return;
+
+  queueBackgroundTask('contract-signing-emails', async () => {
+    const emailService = getEmailService();
+    const tasks = [
+      emailService.sendContractSigned({
+        to: customerEmail,
+        variables: {
+          signerRole,
+          contractReference,
+          lifecycleStatus,
+        },
+      }),
+    ];
+
+    if (activationState) {
+      tasks.push(
+        emailService.sendFullyExecuted({
+          to: customerEmail,
+          variables: {
+            customerName,
+            contractReference,
+          },
+        }),
+      );
+    }
+
+    const results = await Promise.allSettled(tasks);
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error('[BackgroundEmail] contract signing delivery failed', {
+          contractReference,
+          emailType: index === 0 ? 'contract-signed' : 'fully-executed',
+          error: result.reason?.message || String(result.reason),
+        });
+      }
+    });
   });
 }
 
@@ -290,10 +483,7 @@ async function createContract(conn, { deal, customerUserId, startDate }) {
 
 async function createOrRefreshOnboardingInvite(conn, {
   adminId,
-  customerEmail,
-  customerName,
   contractId,
-  contractReference,
   customerUserId,
 }) {
   const { plainToken, expiresAt } = await createOnboardingToken(conn, {
@@ -302,22 +492,6 @@ async function createOrRefreshOnboardingInvite(conn, {
     adminId,
   });
   const onboardingUrl = getOnboardingUrl(plainToken);
-  await sendOnboardingInviteEmail({
-    customerEmail,
-    customerName,
-    contractReference,
-    onboardingUrl,
-    expiresAt,
-  });
-
-  await insertAuditLog(conn, {
-    actorId: adminId,
-    entityType: 'contract',
-    entityId: contractId,
-    action: 'onboarding_sent',
-    metadata: { customerEmail, expiresAt: expiresAt.toISOString() },
-  });
-
   return { onboardingUrl, expiresAt };
 }
 
@@ -395,22 +569,8 @@ export async function approveDealTransaction(conn, { dealId, adminId, adminNotes
 
   const onboardingInvite = await createOrRefreshOnboardingInvite(conn, {
     adminId,
-    customerEmail: resolvedEmail,
-    customerName: deal.customer_name,
     contractId,
-    contractReference,
     customerUserId: customer.userId,
-  });
-
-  const emailService = getEmailService();
-  await emailService.sendDealApproved({
-    to: resolvedEmail,
-    variables: {
-      customerName: deal.customer_name,
-      contractReference,
-      lifecycleStatus: CONTRACT_LIFECYCLE.AWAITING_CUSTOMER_SIGNATURE,
-      dealReference: deal.reference_number || deal.originator_reference,
-    },
   });
 
   await conn.execute(
@@ -447,11 +607,25 @@ export async function approveDealTransaction(conn, { dealId, adminId, adminNotes
     customerEmail: resolvedEmail,
     onboardingInvite: {
       expiresAt: onboardingInvite.expiresAt.toISOString(),
+      onboardingUrl: onboardingInvite.onboardingUrl,
     },
     signatureStatus: {
       customerSigned: false,
       adminSigned: false,
       lifecycleStatus: CONTRACT_LIFECYCLE.AWAITING_CUSTOMER_SIGNATURE,
+    },
+    emailDeliveryQueued: true,
+    postCommitEmailJob: {
+      type: 'approve-deal',
+      adminId,
+      dealId,
+      contractId,
+      customerEmail: resolvedEmail,
+      customerName: deal.customer_name,
+      contractReference,
+      dealReference: deal.reference_number || deal.originator_reference,
+      onboardingUrl: onboardingInvite.onboardingUrl,
+      expiresAt: onboardingInvite.expiresAt.toISOString(),
     },
     idempotent: false,
   };
@@ -486,10 +660,7 @@ export async function resendOnboardingInvite(conn, { dealId, adminId, customerEm
 
   const onboardingInvite = await createOrRefreshOnboardingInvite(conn, {
     adminId,
-    customerEmail: email,
-    customerName: row.customer_name,
     contractId: row.id,
-    contractReference: row.reference_number,
     customerUserId: row.customer_id,
   });
 
@@ -497,12 +668,27 @@ export async function resendOnboardingInvite(conn, { dealId, adminId, customerEm
     contractId: row.id,
     contractReference: row.reference_number,
     customerEmail: email,
-    onboardingInvite: { expiresAt: onboardingInvite.expiresAt.toISOString() },
+    onboardingInvite: {
+      expiresAt: onboardingInvite.expiresAt.toISOString(),
+      onboardingUrl: onboardingInvite.onboardingUrl,
+    },
+    emailDeliveryQueued: true,
+    postCommitEmailJob: {
+      type: 'resend-onboarding-invite',
+      adminId,
+      contractId: row.id,
+      customerEmail: email,
+      customerName: row.customer_name,
+      contractReference: row.reference_number,
+      onboardingUrl: onboardingInvite.onboardingUrl,
+      expiresAt: onboardingInvite.expiresAt.toISOString(),
+    },
   };
 }
 
 export async function consumeOnboardingToken(conn, { token, ipAddress, userAgent }) {
   const tokenHash = crypto.createHash('sha256').update(String(token || '')).digest('hex');
+  const tokenHashPreview = tokenHash.slice(0, 12);
   const result = await conn.execute(
     `SELECT id, user_id, contract_id, expires_at, used_at, invalidated_at
      FROM onboarding_tokens
@@ -512,9 +698,72 @@ export async function consumeOnboardingToken(conn, { token, ipAddress, userAgent
     { outFormat: oracledb.OUT_FORMAT_OBJECT },
   );
   const row = result.rows?.[0] ? normalizeRecord(result.rows[0]) : null;
-  if (!row || row.used_at || row.invalidated_at || new Date(row.expires_at) < new Date()) {
-    throw new Error('This onboarding link is invalid or has expired');
+  if (!row) {
+    console.error('[OnboardingConsume] token lookup failed', {
+      reason: 'not_found',
+      tokenHashPreview,
+      tokenLength: String(token || '').length,
+      ipAddress,
+    });
+    throw new Error('This onboarding link is invalid or has expired (reason: not_found)');
   }
+  if (row.used_at) {
+    if (env.nodeEnv !== 'production' && !row.invalidated_at && new Date(row.expires_at) >= new Date()) {
+      console.warn('[OnboardingConsume] allowing dev replay of used token', {
+        reason: 'already_used_dev_replay',
+        tokenHashPreview,
+        tokenId: row.id,
+        usedAt: row.used_at,
+        expiresAt: row.expires_at,
+        ipAddress,
+      });
+    } else {
+      console.error('[OnboardingConsume] token rejected', {
+        reason: 'already_used',
+        tokenHashPreview,
+        tokenId: row.id,
+        usedAt: row.used_at,
+        invalidatedAt: row.invalidated_at,
+        expiresAt: row.expires_at,
+        ipAddress,
+      });
+      throw new Error('This onboarding link is invalid or has expired (reason: already_used)');
+    }
+  }
+  if (row.invalidated_at) {
+    console.error('[OnboardingConsume] token rejected', {
+      reason: 'invalidated',
+      tokenHashPreview,
+      tokenId: row.id,
+      usedAt: row.used_at,
+      invalidatedAt: row.invalidated_at,
+      expiresAt: row.expires_at,
+      ipAddress,
+    });
+    throw new Error('This onboarding link is invalid or has expired (reason: invalidated)');
+  }
+  if (new Date(row.expires_at) < new Date()) {
+    console.error('[OnboardingConsume] token rejected', {
+      reason: 'expired',
+      tokenHashPreview,
+      tokenId: row.id,
+      usedAt: row.used_at,
+      invalidatedAt: row.invalidated_at,
+      expiresAt: row.expires_at,
+      now: new Date().toISOString(),
+      ipAddress,
+    });
+    throw new Error('This onboarding link is invalid or has expired (reason: expired)');
+  }
+
+  console.log('[OnboardingConsume] token accepted', {
+    tokenHashPreview,
+    tokenId: row.id,
+    contractId: row.contract_id,
+    userId: row.user_id,
+    expiresAt: row.expires_at,
+    ipAddress,
+  });
 
   await conn.execute(
     `UPDATE onboarding_tokens
@@ -678,17 +927,14 @@ export async function signContract(conn, {
     metadata: { signerRole, signerName, ipAddress, userAgent, lifecycleStatus: nextContractLifecycle },
   });
 
-  const emailService = getEmailService();
-  if (customerEmail) {
-    await emailService.sendContractSigned({
-      to: customerEmail,
-      variables: {
-        signerRole,
-        contractReference: contract.reference_number,
-        lifecycleStatus: nextContractLifecycle,
-      },
-    }).catch(() => undefined);
-  }
+  const customerEmailResult = await conn.execute(
+    `SELECT email
+     FROM users
+     WHERE id = HEXTORAW(:id)`,
+    { id: contract.customer_id },
+    { outFormat: oracledb.OUT_FORMAT_OBJECT },
+  );
+  const customerEmail = customerEmailResult.rows?.[0]?.EMAIL || null;
 
   if (activationState) {
     await insertAuditLog(conn, {
@@ -705,15 +951,6 @@ export async function signContract(conn, {
       action: 'contract_fully_signed',
       metadata: { contractReference: contract.reference_number },
     });
-    if (customerEmail) {
-      await emailService.sendFullyExecuted({
-        to: customerEmail,
-        variables: {
-          customerName: contract.customer_name,
-          contractReference: contract.reference_number,
-        },
-      }).catch(() => undefined);
-    }
   }
 
   return {
@@ -721,6 +958,16 @@ export async function signContract(conn, {
     customerSigned: signatureStatus.customerSigned,
     adminSigned: signatureStatus.adminSigned,
     contractActivated: activationState,
+    emailDeliveryQueued: Boolean(customerEmail),
+    postCommitEmailJob: customerEmail ? {
+      type: 'contract-signing',
+      customerEmail,
+      customerName: contract.customer_name,
+      contractReference: contract.reference_number,
+      signerRole,
+      lifecycleStatus: nextContractLifecycle,
+      activationState,
+    } : null,
     idempotent: Boolean(existingSignature),
   };
 }
@@ -901,11 +1148,3 @@ export async function terminateContractDirect(conn, { contractId, adminId, effec
   });
   return requestId;
 }
-  const customerEmailResult = await conn.execute(
-    `SELECT email
-     FROM users
-     WHERE id = HEXTORAW(:id)`,
-    { id: contract.customer_id },
-    { outFormat: oracledb.OUT_FORMAT_OBJECT },
-  );
-  const customerEmail = customerEmailResult.rows?.[0]?.EMAIL || null;

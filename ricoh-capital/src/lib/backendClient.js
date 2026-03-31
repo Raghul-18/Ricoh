@@ -108,7 +108,17 @@ export const authClient = {
     return { data: result, error: null };
   },
   async signInWithOnboardingToken(token) {
+    console.log('[authClient] signInWithOnboardingToken start', {
+      tokenLength: String(token || '').length,
+      tokenPreview: String(token || '').slice(0, 8),
+    });
     const result = await authConsumeOnboardingToken(token);
+    console.log('[authClient] signInWithOnboardingToken success', {
+      redirect_path: result?.redirect_path,
+      contract_id: result?.contract_id,
+      userRole: result?.user?.role,
+      userId: result?.user?.id,
+    });
     notifyAuth('SIGNED_IN', {
       ...result.session,
       user: result.user,
@@ -213,11 +223,20 @@ export async function invokeApi(path, body = {}, method = 'POST') {
   return callApiEndpoint(path, body, method);
 }
 
-export async function logAudit(entityType, entityId, action, details = {}) {
-  await callApiEndpoint('/audit/log', {
+export function logAudit(entityType, entityId, action, details = {}) {
+  void callApiEndpoint('/audit/log', {
     entityType,
     entityId,
     action,
     details,
+  }).catch((error) => {
+    console.error('[audit] background audit log failed', {
+      entityType,
+      entityId,
+      action,
+      error: error.message,
+    });
   });
+
+  return { queued: true };
 }

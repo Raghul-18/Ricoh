@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Mail, PenSquare, ShieldCheck, TimerReset } from 'lucide-react';
+import { ExternalLink, Mail, PenSquare, ShieldCheck, TimerReset } from 'lucide-react';
 
 export default function DealApprovalResultPage() {
   const navigate = useNavigate();
@@ -32,6 +32,15 @@ export default function DealApprovalResultPage() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>Customer onboarding invite</div>
+        {result.emailDeliveryQueued && (
+          <div className="info-banner blue" style={{ marginBottom: 12 }}>
+            <Mail size={14} style={{ color: 'var(--blue)', flexShrink: 0 }} />
+            <div style={{ fontSize: 12 }}>
+              <div style={{ fontWeight: 600 }}>Email delivery queued</div>
+              <div>The contract records were saved first. Email delivery will continue in the background.</div>
+            </div>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="info-banner blue">
             <Mail size={14} style={{ color: 'var(--blue)', flexShrink: 0 }} />
@@ -48,6 +57,22 @@ export default function DealApprovalResultPage() {
             </div>
           </div>
         </div>
+        {result.onboardingInvite?.onboardingUrl && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Latest onboarding link</div>
+            <div style={{ fontSize: 11, color: 'var(--tx3)', wordBreak: 'break-all', marginBottom: 10 }}>
+              {result.onboardingInvite.onboardingUrl}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => window.open(result.onboardingInvite.onboardingUrl, '_blank', 'noopener,noreferrer')}
+              >
+                <ExternalLink size={14} /> Open onboarding link
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>

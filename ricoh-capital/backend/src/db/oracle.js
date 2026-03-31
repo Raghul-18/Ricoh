@@ -13,9 +13,10 @@ export async function initOraclePool() {
     user: env.oracle.user,
     password: env.oracle.password,
     connectString: env.oracle.connectString,
-    poolMin: 1,
-    poolMax: 10,
-    poolIncrement: 1,
+    poolMin: env.oracle.poolMin,
+    poolMax: env.oracle.poolMax,
+    poolIncrement: env.oracle.poolIncrement,
+    queueTimeout: env.oracle.queueTimeoutMs,
   };
   if (env.oracle.walletDir) {
     poolConfig.configDir = env.oracle.walletDir;
@@ -25,10 +26,29 @@ export async function initOraclePool() {
 }
 
 export async function withConnection(fn) {
+  const acquireStartedAt = Date.now();
   const conn = await oracledb.getConnection();
+  const acquireDurationMs = Date.now() - acquireStartedAt;
+  if (acquireDurationMs >= 250) {
+    console.warn('[Oracle] slow connection acquire', {
+      durationMs: acquireDurationMs,
+      poolOpenConnections: pool?.connectionsOpen,
+      poolInUseConnections: pool?.connectionsInUse,
+    });
+  }
+
+  const startedAt = Date.now();
   try {
     return await fn(conn);
   } finally {
+    const durationMs = Date.now() - startedAt;
+    if (durationMs >= 800) {
+      console.warn('[Oracle] slow connection usage', {
+        durationMs,
+        poolOpenConnections: pool?.connectionsOpen,
+        poolInUseConnections: pool?.connectionsInUse,
+      });
+    }
     await conn.close();
   }
 }
